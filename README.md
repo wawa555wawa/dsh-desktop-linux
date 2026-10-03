@@ -107,12 +107,20 @@ Arch 包只出未打包目录装进 `/opt/deepseek-harness-desktop`，`/usr/bin/
 官方提示「当前会话已被占用，可能是其他正在运行的 DSH 导致的……请退出其他正在运行的 DSH 后重试」。
 
 上游给「回到隐藏窗口」准备了两条路，但文档里写到的只有 Windows 的托盘和 macOS 的 Dock，
-**Linux 原本一条都没有**。补丁 `0013` 把托盘补上：图标常驻，带托盘菜单。托盘菜单「退出」走与窗口
-菜单栏 `Quit`、`Ctrl+Q` 相同的确认流程（Host 有在跑的任务或定时任务时会先问一次）。
+**Linux 原本一条都没有**。补丁 `0013` 把托盘补上：图标常驻，带托盘菜单。托盘菜单「退出」走与
+`Ctrl+Q` 相同的确认流程（Host 有在跑的任务或定时任务时会先问一次）。
 
 - 托盘菜单：右键点图标弹出。
-- 真正退出：托盘右键菜单的「退出」、菜单栏 `Application` → `Quit`、或 `Ctrl+Q`。
+- 真正退出：托盘右键菜单的「退出」、或 `Ctrl+Q`。
 - 找回窗口：再启动一次即可（第二次启动只聚焦已有实例）。
+
+**标题栏也是自绘的（补丁 `0016`）。** Linux 上 Electron 没有 Window Controls Overlay，上游也只给
+Windows / macOS 写了标题栏，所以主窗去掉 OS 边框，改用与 Windows 相同的 caption 座位画一条 40 DIP
+的标题栏：右侧是最小化 / 最大化 / 关闭（深浅色跟随主题），其余是拖拽带，按住空白处可以移动窗口。
+「关闭」与系统关闭键同义——隐藏窗口，不是退出。
+
+无边框窗口里不会再有原生菜单条：这是 Electron 的行为（`RootView::SetMenu` 对无边框窗口直接返回），
+不是被本项目藏掉的，Alt 也唤不出来。**所以「关于」「检查更新」在界面上没有入口**，见[已知限制](#已知限制)。
 
 ## 验证状态
 
@@ -145,6 +153,12 @@ Arch 包只出未打包目录装进 `/opt/deepseek-harness-desktop`，`/usr/bin/
 
 ## 已知限制
 
+- **没有原生菜单条，「关于」「检查更新」在界面上没有入口。** 自绘标题栏（补丁 `0016`）让主窗无边框，
+  而 Electron 不为无边框窗口绘制菜单条（`RootView::SetMenu` 对无边框窗口直接返回，Alt 也唤不出来），
+  标题栏里也没有挂 Application / Edit 菜单。退出仍有托盘菜单与 `Ctrl+Q`；`Ctrl+C` / `Ctrl+V` 这类
+  快捷键来自应用菜单的加速器，不受影响。
+- **标题栏三个按钮的悬浮提示是英文。** Windows 的窗口按钮由系统绘制、文案由系统本地化，Linux
+  这一份是自绘的。
 - **GNOME 默认看不到托盘，要自己装扩展。** 托盘走 freedesktop 的 StatusNotifierItem，GNOME 本体
   不提供宿主，装 `gnome-shell-extension-appindicator` 才有（Ubuntu 默认已装；Debian 要自己
   `apt install`，Fedora 要 `dnf install`）。装完还有两个坑：扩展 UUID 是

@@ -131,6 +131,32 @@ if [[ -x "$UNPACKED/deepseek-harness" ]]; then
   else
     bad "resources/tray-linux.png 缺失（Linux 托盘会拿到空图标）"
   fi
+  # 自绘标题栏（补丁 0016）：asar 关闭后主进程与 preload 的产物就是 resources/app/lib 下的真文件，
+  # 所以这里断言编出来的代码本身，防的是「改了 src 却没重编 build:official」。三条都用只可能由
+  # 0016 产生的字面量：它独有的两个 IPC 通道名，以及 preload 里的按钮动作名。字符串字面量打包器
+  # 一定保留（单引号会被重写成双引号）；去边框那条只能上正则——压缩器会吃掉对象里的空格，
+  # 实测产物是 `... "linux" ? { frame: false } : {}`。
+  main_bundle="$UNPACKED/resources/app/lib/main.js"
+  preload_bundle="$UNPACKED/resources/app/lib/preload-app.cjs"
+  if [[ -f "$main_bundle" && -f "$preload_bundle" ]]; then
+    missing=""
+    grep -q -F 'dsh-desktop:window-controls' "$main_bundle" || missing="$missing 窗口控制通道"
+    grep -q -F 'dsh-desktop:window-controls-state' "$main_bundle" || missing="$missing 最大化状态回推"
+    grep -q -E 'linux" *\? *\{ *frame: false' "$main_bundle" || missing="$missing Linux 去边框"
+    if [[ -z "${missing// /}" ]]; then
+      ok "main.js 含 Linux 去边框与窗口控制通道（补丁 0016）"
+    else
+      bad "main.js 缺：$missing（补丁 0016 没编进主进程 bundle）"
+    fi
+    if grep -q -F 'dsh-desktop:window-controls-state' "$preload_bundle" \
+      && grep -q -F 'toggle-maximize' "$preload_bundle"; then
+      ok "preload-app.cjs 含 Linux caption 模块（补丁 0016）"
+    else
+      bad "preload-app.cjs 缺 Linux caption（补丁 0016 没编进 preload bundle）"
+    fi
+  else
+    skip "读不到 resources/app/lib（未打包目录里没有主进程或 preload 产物）"
+  fi
 else
   skip "linux-unpacked 不存在（还没跑 package:linux:x64:dir）"
 fi

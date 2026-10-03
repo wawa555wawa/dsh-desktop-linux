@@ -1,0 +1,203 @@
+diff --git a/apps/desktop/src/ipc.ts b/apps/desktop/src/ipc.ts
+index fc19021..3f79a11 100644
+--- a/apps/desktop/src/ipc.ts
++++ b/apps/desktop/src/ipc.ts
+@@ -31,6 +31,8 @@ export const DESKTOP_IPC = {
+   windowFullscreen: 'dsh-desktop:window-fullscreen',
+   windowsAppearance: 'dsh-desktop:windows-appearance',
+   windowsMenu: 'dsh-desktop:windows-menu',
++  windowControls: 'dsh-desktop:window-controls',
++  windowControlsState: 'dsh-desktop:window-controls-state',
+ } as const
+ 
+ /** Desktop release update state rendered by desktop-owned UI. */
+diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
+index b4b8153..e244e05 100644
+--- a/apps/desktop/src/main.ts
++++ b/apps/desktop/src/main.ts
+@@ -215,6 +215,11 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+       titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
+         symbolColor: nativeTheme.shouldUseDarkColors ? '#f9fafb' : '#0f1115' },
+     } : {}),
++    ...(process.platform === 'linux' ? {
++      // Electron has no Window Controls Overlay on Linux, so the OS frame goes away and the local
++      // caption preload publishes the same seat Windows receives from that overlay.
++      frame: false,
++    } : {}),
+     // hiddenInset places traffic lights inside the sidebar; sidebar vibrancy
+     // needs a transparent window background to show through the page.
+     ...(process.platform === 'darwin' ? {
+@@ -1053,6 +1058,21 @@ async function main(): Promise<void> {
+     })
+   }
+ 
++  if (process.platform === 'linux') {
++    // Window Controls Overlay exists only on Windows, so the Linux caption draws its own buttons
++    // (see preload-linux-caption.ts) and routes them here.
++    ipcMain.on(DESKTOP_IPC.windowControls, (event, action: unknown) => {
++      if (mainWindow === undefined || event.sender !== mainWindow.webContents
++        || event.senderFrame !== mainWindow.webContents.mainFrame) return
++      if (!event.senderFrame.url.startsWith(`${SCHEME}://app/`)) return
++      if (action === 'minimize') mainWindow.minimize()
++      else if (action === 'toggle-maximize') {
++        if (mainWindow.isMaximized()) mainWindow.unmaximize()
++        else mainWindow.maximize()
++      } else if (action === 'close') mainWindow.close()
++    })
++  }
++
+   const hideMainWindow = (window: BrowserWindow): void => {
+     if (process.platform === 'darwin' && window.isFullScreen()) {
+       // Hiding a fullscreen window leaves an empty black space; leave fullscreen first.
+@@ -1065,6 +1085,16 @@ async function main(): Promise<void> {
+   const createMainWindow = (): BrowserWindow => {
+     const window = createWindow(appPreload, false, true)
+     mainWindow = window
++    if (process.platform === 'linux') {
++      // The caption's maximize control mirrors the window; a frameless window gets no native
++      // state change, and the renderer only knows what this publishes.
++      const publishMaximized = (): void => {
++        if (!window.isDestroyed()) window.webContents.send(DESKTOP_IPC.windowControlsState, window.isMaximized())
++      }
++      window.on('maximize', publishMaximized)
++      window.on('unmaximize', publishMaximized)
++      window.webContents.on('did-finish-load', publishMaximized)
++    }
+     browserGuests.bind(window, (guest, name) => shortcuts.attachGuest(window, guest, name))
+     shortcuts.attach(window)
+     window.on('focus', automaticCheck)
+diff --git a/apps/desktop/src/preload-app.ts b/apps/desktop/src/preload-app.ts
+index f590b8b..0fd05c9 100644
+--- a/apps/desktop/src/preload-app.ts
++++ b/apps/desktop/src/preload-app.ts
+@@ -6,6 +6,7 @@ import { DESKTOP_IPC, SCHEME, type DshDesktopProductApi, type DesktopUpdatePrese
+ import { PLATFORM_IPC } from './platform-ipc.ts'
+ import { markDocumentPlatform, syncWindowFullscreen } from './preload-platform.ts'
+ import { syncNativeTheme } from './preload-theme.ts'
++import { installLinuxCaption } from './preload-linux-caption.ts'
+ import { syncWindowsAppearance } from './preload-windows.ts'
+ import { installMandatoryUpdateOverlay } from './preload-mandatory-overlay.ts'
+ import { createDesktopBrowserBridge } from './preload-browser.ts'
+@@ -72,6 +73,7 @@ if (location.protocol === `${SCHEME}:` && location.hostname === 'app') {
+     else body.setAttribute('tabindex', previous)
+   })
+   syncWindowsAppearance()
++  installLinuxCaption()
+   if (process.platform === 'win32') installMandatoryUpdateOverlay()
+   contextBridge.exposeInMainWorld('__DSH_DIRECTORY_PICKER__', {
+     pick: () => ipcRenderer.invoke(DESKTOP_IPC.directoryPick) as Promise<string | null>,
+diff --git a/apps/desktop/src/preload-linux-caption.ts b/apps/desktop/src/preload-linux-caption.ts
+new file mode 100644
+index 0000000..a9a2e38
+--- /dev/null
++++ b/apps/desktop/src/preload-linux-caption.ts
+@@ -0,0 +1,109 @@
++/** Linux window controls for the shared caption seat: Electron has no Window Controls Overlay there. */
++
++import { ipcRenderer } from 'electron'
++import { DESKTOP_IPC } from './ipc.ts'
++import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
++
++const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
++
++/**
++ * Colors come from the application theme, so light/dark switching needs no IPC. This host owns the
++ * controls only: the 40 DIP band, its drag region, and the sidebar geometry come from the shared
++ * `data-windows-titlebar` seat the marker below publishes.
++ */
++const CAPTION_STYLE = `
++  :host { position: fixed; top: 0; right: 0; z-index: 1090; display: flex;
++    height: var(--dsh-windows-titlebar-height, 40px); -webkit-app-region: no-drag; }
++  button { width: 46px; height: 100%; margin: 0; padding: 0; border: 0; display: grid; place-items: center;
++    background: transparent; color: var(--dsw-alias-label-primary, currentColor); cursor: default; font: inherit; }
++  button:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(127, 127, 127, 0.16)); }
++  button[data-action='close']:hover { background: #c42b1c; color: #ffffff; }
++  button:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary, currentColor); outline-offset: -2px; }
++  svg { width: 12px; height: 12px; display: block; }
++`
++
++/** Glyph geometry in a 12x12 viewBox, stroked with `currentColor` so both themes share one set. */
++const MINIMIZE_GLYPH = ['M1 6h10']
++const MAXIMIZE_GLYPH = ['M1.6 1.6h8.8v8.8H1.6z']
++const RESTORE_GLYPH = ['M1.6 3.6h6.8v6.8H1.6z',
++  'M4 3.6V2.4c0-.44.36-.8.8-.8h4.8c.44 0 .8.36.8.8v4.8c0 .44-.36.8-.8.8H8']
++const CLOSE_GLYPH = ['M1.5 1.5l9 9', 'M10.5 1.5l-9 9']
++
++/**
++ * Draw the caption window controls on Linux.
++ *
++ * The Linux main window drops its OS frame because Electron carries no Window Controls Overlay
++ * there, and the native caption buttons go with it. This publishes the same `data-windows-titlebar`
++ * seat the Windows caption receives from that overlay, so the shared layout styles supply the band,
++ * its drag region, and the sidebar geometry, and mounts the missing controls beside it. Button
++ * tooltips stay English: Windows gets them localized from the OS, and the shell owns no copy for
++ * controls it never drew itself.
++ */
++export function installLinuxCaption(): void {
++  if (process.platform !== 'linux') return
++  const mark = (): void => {
++    const root = document.documentElement
++    root.dataset.windowsTitlebar = ''
++    root.style.setProperty('--dsh-windows-titlebar-height', `${WINDOWS_TITLEBAR_HEIGHT}px`)
++  }
++  // The root can be absent before the HTML parser creates it.
++  if ((document.documentElement as HTMLElement | null) !== null) mark()
++
++  const glyph = (paths: readonly string[]): SVGSVGElement => {
++    const svg = document.createElementNS(SVG_NAMESPACE, 'svg')
++    svg.setAttribute('viewBox', '0 0 12 12')
++    svg.setAttribute('aria-hidden', 'true')
++    for (const value of paths) {
++      const shape = document.createElementNS(SVG_NAMESPACE, 'path')
++      shape.setAttribute('d', value)
++      shape.setAttribute('fill', 'none')
++      shape.setAttribute('stroke', 'currentColor')
++      shape.setAttribute('stroke-width', '1.2')
++      svg.append(shape)
++    }
++    return svg
++  }
++
++  const install = (): void => {
++    mark()
++    const host = document.createElement('div')
++    host.dataset.linuxCaption = ''
++    const shadow = host.attachShadow({ mode: 'open' })
++    const style = document.createElement('style')
++    style.textContent = CAPTION_STYLE
++    const control = (action: 'minimize' | 'toggle-maximize' | 'close', label: string): HTMLButtonElement => {
++      const button = document.createElement('button')
++      button.type = 'button'
++      button.dataset.action = action
++      button.setAttribute('aria-label', label)
++      button.title = label
++      // The caption never owns an editor, so it must not take focus away from the document.
++      button.addEventListener('pointerdown', (event) => { event.preventDefault() })
++      button.addEventListener('mousedown', (event) => { event.preventDefault() })
++      button.addEventListener('click', () => { ipcRenderer.send(DESKTOP_IPC.windowControls, action) })
++      return button
++    }
++    const minimize = control('minimize', 'Minimize')
++    minimize.append(glyph(MINIMIZE_GLYPH))
++    const maximize = control('toggle-maximize', 'Maximize')
++    maximize.append(glyph(MAXIMIZE_GLYPH))
++    const close = control('close', 'Close')
++    close.append(glyph(CLOSE_GLYPH))
++    const onWindowState = (_event: Electron.IpcRendererEvent, maximized: unknown): void => {
++      const restoring = maximized === true
++      const label = restoring ? 'Restore' : 'Maximize'
++      maximize.setAttribute('aria-label', label)
++      maximize.title = label
++      maximize.replaceChildren(glyph(restoring ? RESTORE_GLYPH : MAXIMIZE_GLYPH))
++    }
++    ipcRenderer.on(DESKTOP_IPC.windowControlsState, onWindowState)
++    shadow.append(style, minimize, maximize, close)
++    document.body.append(host)
++    window.addEventListener('pagehide', () => {
++      ipcRenderer.off(DESKTOP_IPC.windowControlsState, onWindowState)
++      host.remove()
++    }, { once: true })
++  }
++  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', install, { once: true })
++  else install()
++}

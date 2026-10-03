@@ -129,13 +129,25 @@ another running DSH instance … Quit other running DSH instances and try again.
 
 Upstream provides two ways back to a hidden window, but what its documentation covers is the Windows
 tray and the macOS Dock; **Linux had neither.** Patch `0013` adds the tray: the icon stays for the
-whole run and carries a tray menu. The tray menu's "Quit" goes through the same confirmation as the
-window menu bar's `Quit` and `Ctrl+Q` (it asks first when the Host has running or scheduled tasks).
+whole run and carries a tray menu. The tray menu's "Quit" goes through the same confirmation as
+`Ctrl+Q` (it asks first when the Host has running or scheduled tasks).
 
 - The tray menu opens on a right click.
-- To really quit: the tray menu's "Quit", the `Application` → `Quit` menu item, or `Ctrl+Q`.
+- To really quit: the tray menu's "Quit" or `Ctrl+Q`.
 - To get the window back: launch the application again (a second launch only focuses the instance
   that is already running).
+
+**The title bar is drawn locally too (patch `0016`).** Electron carries no Window Controls Overlay on
+Linux, and upstream wrote a title bar for Windows and macOS only, so the main window drops its OS
+frame and uses the same caption seat Windows receives from that overlay: a 40 DIP band with the
+minimize / maximize / close controls on the right (they follow the light and dark theme) and a drag
+region everywhere else, so holding an empty spot moves the window. "Close" means the same as the
+system close button — hide the window, not quit.
+
+A frameless window never gets a native menu bar: that is Electron's behavior (`RootView::SetMenu`
+returns early for frameless windows), not something this project hides, and Alt cannot bring it back.
+**So "About" and "Check for Updates" have no entry point in the UI**; see
+[Known limitations](#known-limitations).
 
 ## Validation status
 
@@ -168,6 +180,14 @@ Both tables below are kept up to date as reports come in — please tell us how 
 
 ## Known limitations
 
+- **No native menu bar, so "About" and "Check for Updates" have no entry point in the UI.** The local
+  title bar (patch `0016`) makes the main window frameless, and Electron draws no menu bar in a
+  frameless window (`RootView::SetMenu` returns early, and Alt cannot reveal it either); the title
+  bar carries no Application / Edit menu. Quitting is still available from the tray menu and
+  `Ctrl+Q`, and accelerators such as `Ctrl+C` / `Ctrl+V` come from the application menu, so they keep
+  working.
+- **The three title bar buttons have English tooltips.** Windows draws its caption buttons and gets
+  the wording localized from the system; this one is drawn locally.
 - **GNOME shows no tray by default — install the extension yourself.** The tray uses freedesktop
   StatusNotifierItem, and GNOME ships no host for it, so you need `gnome-shell-extension-appindicator`
   (Ubuntu installs it by default; Debian needs its own `apt install` and Fedora its `dnf install`).

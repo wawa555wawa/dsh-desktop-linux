@@ -4,14 +4,18 @@
 
 组织约定：**一个文件只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，
 互不重叠，因此应用顺序无关（仍按编号执行）。补丁由 `git diff -- <files>` 从开发工作树生成；
-两个补丁共用一个文件时（`electron-builder-config.mjs` 属 0003 与 0013，`src/main.ts` 属 0008 与 0013），
+两个补丁共用一个文件时（`electron-builder-config.mjs` 属 0003 与 0013，`src/main.ts` 属 0008、0013 与 0016），
 必须按「基线 + 只有这一个补丁」的隔离树取 diff，否则会把另一个补丁的 hunk 一起带进来。
 
-已验证（rc.2）：15 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.0-rc.2`）上，
-`patch -Np1` 与 `git apply` 都干净通过，48 个触及文件与开发工作树逐字节一致；
-`pnpm install --frozen-lockfile` 与 `pnpm run build:official` 在同一棵树上通过，
-`makepkg` 也整包构建成功（`dsh-desktop-linux-0.2.0rc2-1`，产物里 `resources/runtime/cli` 不存在，
-正是 0004 的 Linux 闸门在起作用）。
+已验证（rc.2）：16 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.0-rc.2`）上，
+`patch -Np1` 与 `git apply` 都干净通过，51 个触及文件；在打好全部补丁的树上逐个反打也全部干净
+（`0016` 与 `0008` / `0013` 共用 `src/main.ts`，反打干净即三者的 hunk 互不重叠）。
+`pnpm install --frozen-lockfile` 与 `pnpm run build:official` 在同一棵树上通过，`build.sh --dir`
+出得来 linux-unpacked，`verify.sh` 里针对 `0016` 的两条产物断言（主进程的去边框与窗口控制通道、
+preload 的 caption 模块）通过；这一轮只跑了 `--dir`，所以 `verify.sh` 的「产物存在」一节按设计报
+FAIL（没有 AppImage/deb/rpm）。更早那轮 15 补丁的验证里 `makepkg` 也整包构建成功
+（`dsh-desktop-linux-0.2.0rc2-1`，产物里 `resources/runtime/cli` 不存在，正是 0004 的 Linux 闸门
+在起作用）；`0016` 之后没再跑 makepkg。
 rc.1 → rc.2 只有 6 个文件变过（`pnpm-lock.yaml`、`src/main.ts`、`desktop-upload-plan.ts`、
 `prepare-runtime.ts`、`prepare-dsh.ts`、`apps/desktop/package.json`），对应
 0002 / 0004 / 0006 / 0008 / 0013 / 0014 六个补丁重生，其余 9 个逐字节未动。
@@ -69,6 +73,22 @@ rc.1 → rc.2 只有 6 个文件变过（`pnpm-lock.yaml`、`src/main.ts`、`des
 
 `0015` 是 `0013` 的下游：Linux 的首次关窗提示是 `0013` 打开的，而它用的正是这个浮层。
 
+## 让 Linux 也有自绘标题栏（0016）
+
+| 补丁 | 覆盖文件 | 内容 |
+|---|---|---|
+| `0016-desktop-linux-caption.patch` | `src/main.ts`、`src/ipc.ts`、`src/preload-app.ts`、`src/preload-linux-caption.ts` | Linux 主窗去掉 OS 边框（`frame: false`）；新的 preload 模块发布 Windows caption 用的同一个 `data-windows-titlebar` 座位（40 DIP 条、拖拽带、侧栏与浮层几何交给共享样式），并在右侧补上自绘的最小化 / 最大化 / 关闭；主进程加 `dsh-desktop:window-controls`（收按钮动作）与 `dsh-desktop:window-controls-state`（把最大化状态回推渲染进程）两个通道 |
+
+复用 Windows 的座位而不是另起一套，是因为共享布局只认这一个标记：`ui-layout` 的 `AppFrame.module.css`
+与 `AppFrame.tsx`、`ui-dockkit`、`ui-sidebar`、`ui-sidebar-right`、`ui-settings-account` 都按
+`html[data-windows-titlebar]` 留白、铺拖拽带、避让浮层，Web UI 一行都不用改。
+
+**兄弟项目里那两行「隐藏原生菜单条」没有移植过来**（`autoHideMenuBar: true` 与
+`window.setMenuBarVisibility(false)`）：Electron 44.4.5 的 `RootView::SetMenu` 在
+`!window_->has_frame()` 时直接 return，注释就写着 *"Do not show menu bar in frameless window"* ——
+无边框窗口根本不会创建菜单条，`SetMenuBarVisibility` 只操作那个不存在的 `menu_bar_`，
+`HandleKeyEvent` 也在 `!menu_bar_` 时返回，所以 Alt 同样唤不出来。两行都是死代码。
+
 ## 注意
 
 - **dev 模式也需要 `0001`**——`dev.ts` 虽然不走 `package-target.ts`，
@@ -114,3 +134,21 @@ rc.1 → rc.2 只有 6 个文件变过（`pnpm-lock.yaml`、`src/main.ts`、`des
   那里会显得鲸鱼顶满方块。所以 `renderLinuxTrayIcon()` 按原比例渲（保留应用图标自身的留白，
   与启动器/任务栏图标观感一致），底图仍然保留，深浅面板都还有对比度。两边同源（都用
   `resources/icon-windows.svg`），改动只在渲染参数上。
+- **`0016` 之后 Linux 既没有原生菜单条，也没有 caption 菜单。** 上游的 caption 菜单（Application /
+  Edit）由 preload 的 `installWindowsMenu()` 画，而它只在 `syncWindowsAppearance()` 里被调用，后者的
+  第一行是 `if (process.platform !== 'win32') return`。要给 Linux 挂上就得放宽 `main.ts` 里
+  `if (process.platform === 'win32')` 那个块，而那块里同时有 `windowsAppearance` 处理器——它的
+  `setTitleBarOverlay()` 在 Linux 上会抛：`BaseWindow::SetTitleBarOverlay` 在 `IS_WIN || IS_LINUX`
+  下都暴露，但 WCO 未启用时执行 `args->ThrowTypeError('Titlebar overlay is not enabled')`，而 WCO
+  要求 `title_bar_style() == kHidden && titlebar_overlay_`，`frame: false` 的 Linux 窗两者都没有。
+  所以这两件事一起被排除，代价是**「关于」「检查更新」在界面上没有入口**（退出仍有托盘菜单与
+  `Ctrl+Q`），已记进 README 的已知限制。菜单的加速器不受影响：`RootView::RegisterAcceleratorsWithFocusManager`
+  在 `has_frame()` 判断之前就执行了。
+- **标题栏三个按钮的 `title` / `aria-label` 是英文。** Windows 的 caption 按钮由系统绘制、本地化由
+  系统提供；Linux 这份是自绘的，而 shell 的文案表（`src/locale.ts`）里没有窗口控制这一组词，
+  加词要同时改 en / zh 两组文案，超出了这个补丁的范围。
+- **`dsh-desktop:window-controls` 在主进程里校验三件事**：发送者是主窗、发送 frame 是主 frame、URL
+  前缀是 `dsh-app://app/`，任一不满足就静默丢弃（与同处的 `windowsAppearance` 处理器同款；那条是
+  `ipcMain.on` 而不是 `handle`，抛出去就是主进程未捕获异常）。反方向的状态只回推一个布尔：Linux 上
+  只有主进程知道窗口是否最大化，所以由 `maximize` / `unmaximize` / `did-finish-load` 三处发
+  `window-controls-state`，渲染进程据此把最大化按钮换成还原图形。
