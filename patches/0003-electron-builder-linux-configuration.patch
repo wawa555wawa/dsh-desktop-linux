@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
-index 1fb7878..c1a5f26 100644
+index 1fb7878..75c93e0 100644
 --- a/apps/desktop/scripts/electron-builder-config.mjs
 +++ b/apps/desktop/scripts/electron-builder-config.mjs
 @@ -22,7 +22,8 @@ import {
@@ -60,7 +60,7 @@ index 1fb7878..c1a5f26 100644
      electronDist: buildPaths.electron,
      electronFuses: { runAsNode: true },
      beforeBuild: async () => {
-@@ -231,9 +244,38 @@ export function createElectronBuilderConfig(
+@@ -231,9 +244,47 @@ export function createElectronBuilderConfig(
        target: ['nsis'],
      },
      linux: {
@@ -95,8 +95,17 @@ index 1fb7878..c1a5f26 100644
 +    // rejects it with "Tag takes single token only", so both formats name the package explicitly.
 +    // The category is explicit for the same reason: fpm otherwise stamps Debian's Section and RPM's
 +    // Group as "default", which names neither a Debian section nor an RPM group.
-+    deb: { packageName: 'deepseek-harness', packageCategory: 'devel' },
-+    rpm: { packageName: 'deepseek-harness', packageCategory: 'Development/Tools' },
++    // The tray menu needs libdbusmenu-glib.so.4 at runtime, but Electron dlopens it: the library
++    // name and the dbusmenu_* symbols sit in the binary while the shared object is absent from
++    // NEEDED, so ldd and namcap both miss it and nothing pulls it in. The Arch package declares it
++    // in PKGBUILD depends; the fpm formats declare it here. It goes through `fpm` and not `depends`
++    // because electron-builder replaces its entire default dependency list when `depends` is set
++    // (FpmTarget falls back to getDefaultDepends only when it is absent), and copying that list here
++    // would silently drop whatever upstream adds later. The RPM name differs by distribution, which
++    // is what the rich dependency syntax the defaults already use is for.
++    deb: { packageName: 'deepseek-harness', packageCategory: 'devel', fpm: ['-d', 'libdbusmenu-glib4'] },
++    rpm: { packageName: 'deepseek-harness', packageCategory: 'Development/Tools',
++      fpm: ['-d', '(libdbusmenu or libdbusmenu-glib4)'] },
      nsis: {
        installerSidebar: join(buildPaths.root, 'installer-ui', 'uninstaller-sidebar.bmp'),
        uninstallerSidebar: join(buildPaths.root, 'installer-ui', 'uninstaller-sidebar.bmp'),

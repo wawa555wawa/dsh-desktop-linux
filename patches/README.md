@@ -9,13 +9,16 @@
 
 已验证（rc.2）：16 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.0-rc.2`）上，
 `patch -Np1` 与 `git apply` 都干净通过，51 个触及文件；在打好全部补丁的树上逐个反打也全部干净
-（`0016` 与 `0008` / `0013` 共用 `src/main.ts`，反打干净即三者的 hunk 互不重叠）。
-`pnpm install --frozen-lockfile` 与 `pnpm run build:official` 在同一棵树上通过，`build.sh --dir`
-出得来 linux-unpacked，`verify.sh` 里针对 `0016` 的两条产物断言（主进程的去边框与窗口控制通道、
-preload 的 caption 模块）通过；这一轮只跑了 `--dir`，所以 `verify.sh` 的「产物存在」一节按设计报
-FAIL（没有 AppImage/deb/rpm）。更早那轮 15 补丁的验证里 `makepkg` 也整包构建成功
-（`dsh-desktop-linux-0.2.0rc2-1`，产物里 `resources/runtime/cli` 不存在，正是 0004 的 Linux 闸门
-在起作用）；`0016` 之后没再跑 makepkg。
+（`0016` 与 `0008` / `0013` 共用 `src/main.ts`，`0003` 与 `0013` 共用 `electron-builder-config.mjs`，
+反打干净即各自的 hunk 互不重叠）。`pnpm install --frozen-lockfile` 与 `pnpm run build:official`
+在同一棵树上通过，`build.sh` 出得来 linux-unpacked 与 rpm / deb，`verify.sh` 静态矩阵
+**18 通过 / 0 失败 / 3 跳过**——其中包含针对 `0016` 的两条产物断言（主进程的去边框与窗口控制通道、
+preload 的 caption 模块）。`0003` 新加的依赖声明实测进了包：rpm 的 `Requires` 里是
+`(libdbusmenu or libdbusmenu-glib4)`、上游那 8 条默认依赖一条不少，deb 的 `Depends` 末尾是
+`libdbusmenu-glib4`、上游那 9 条默认依赖一条不少（`fpm` 追加这条路为什么能用，见「注意」）。
+`makepkg` 这一轮没跑（`pkgrel` 现为 2，上游 tag 未变）；更早那轮 15 补丁的验证里 `makepkg` 是
+整包构建成功的（`dsh-desktop-linux-0.2.0rc2-1`，产物里 `resources/runtime/cli` 不存在，正是 0004
+的 Linux 闸门在起作用）。
 rc.1 → rc.2 只有 6 个文件变过（`pnpm-lock.yaml`、`src/main.ts`、`desktop-upload-plan.ts`、
 `prepare-runtime.ts`、`prepare-dsh.ts`、`apps/desktop/package.json`），对应
 0002 / 0004 / 0006 / 0008 / 0013 / 0014 六个补丁重生，其余 9 个逐字节未动。
@@ -26,7 +29,7 @@ rc.1 → rc.2 只有 6 个文件变过（`pnpm-lock.yaml`、`src/main.ts`、`des
 |---|---|---|
 | `0001-desktop-target-model-add-linux-x64.patch` | `desktop-build-paths.{mjs,d.mts}`、`desktop-auto-update-environment.{mjs,d.mts}` | target 白名单加 `linux-x64`；`desktopTargetPlatform` 返回 `'linux'`；新增 `desktopElectronExecutablePath()` |
 | `0002-package-target-add-linux-x64.patch` | `package-target.ts`、`desktop-upload-plan.ts` | 打包目标表加 `linux-x64`；Linux 构建主机校验；放宽 `--unsigned` |
-| `0003-electron-builder-linux-configuration.patch` | `electron-builder-config.mjs` | 允许 unsigned 的 Linux 构建；Linux 关闭 asar；显式 `executableName`；Linux 不嵌入强制更新策略；Linux 的打包格式与包元数据来自发布设置（见 `0011`）；显式钉住 deb/rpm 的 `packageName` / `packageCategory` 与 `linux.synopsis`；用 `appImage.executableArgs: []` 去掉 legacy 工具集写死的 `--no-sandbox`；Linux 图标显式指定为 SVG —— 单个 PNG 文件会被 electron-builder **原样按自身像素尺寸**装进 `hicolor/1024x1024/apps`，而多个发行版的 `hicolor/index.theme` 并不声明该目录（Arch 就没有），图标会解析不到；SVG 落到 `hicolor/scalable/apps`，所有发行版都声明 |
+| `0003-electron-builder-linux-configuration.patch` | `electron-builder-config.mjs` | 允许 unsigned 的 Linux 构建；Linux 关闭 asar；显式 `executableName`；Linux 不嵌入强制更新策略；Linux 的打包格式与包元数据来自发布设置（见 `0011`）；显式钉住 deb/rpm 的 `packageName` / `packageCategory` 与 `linux.synopsis`；deb/rpm 声明托盘菜单依赖的 `libdbusmenu-glib.so.4`（走 fpm 追加，见「注意」）；用 `appImage.executableArgs: []` 去掉 legacy 工具集写死的 `--no-sandbox`；Linux 图标显式指定为 SVG —— 单个 PNG 文件会被 electron-builder **原样按自身像素尺寸**装进 `hicolor/1024x1024/apps`，而多个发行版的 `hicolor/index.theme` 并不声明该目录（Arch 就没有），图标会解析不到；SVG 落到 `hicolor/scalable/apps`，所有发行版都声明 |
 | `0004-prepare-target-electron-distribution.patch` | `prepare-dsh.ts`、`prepare-runtime.ts` | Electron 分发路径按 target 推导，不再假设「非 mac 即 win32」；打包期 `pnpm install` / 运行时冒烟改用 Host 运行时；`versions.json.node` 记为 payload 实际运行的 Node 版本；Linux 上整块跳过 rc.2 新增的 `prepare:cli`（见「注意」） |
 | `0005-desktop-linux-release-settings.patch` | `desktop-package-environment.{mjs,d.mts}`、`desktop-toolchain-preflight.ts`、`.gitignore`、`.env.linux.example`、`tests/desktop-package-environment.spec.ts` | 支持 `.env.linux`；Linux 不套用 Windows/macOS 专属设置；Linux 不要求策略 origin；修掉 `win32 ? … : macOS` 的隐含假设；Linux 文件白名单加 `MAINTAINER`/`HOMEPAGE`（并从环境里剥掉，保证发布设置只由文件拥有）；打了 rpm 才预检 `rpmbuild` |
 | `0006-desktop-package-linux-scripts.patch` | `apps/desktop/package.json` | `package:linux:x64` / `package:linux:x64:dir` |
@@ -123,7 +126,13 @@ rc.1 → rc.2 只有 6 个文件变过（`pnpm-lock.yaml`、`src/main.ts`、`des
   全库没有 `appindicator` 字样，`ldd` / `NEEDED` 里也没有，所以**不需要** libappindicator。
   但托盘菜单要 `libdbusmenu-glib.so.4`——那个库名和 `dbusmenu_*` 符号名都在二进制里，
   却不在 `NEEDED` 里（1519 个未定义动态符号里没有它），即 dlopen。缺了它图标照出、菜单是空的，
-  等于没有退出入口，而 `ldd` 和 namcap 都看不见，所以它由 PKGBUILD 显式写进 `depends`。
+  等于没有退出入口，而 `ldd` 和 namcap 都看不见，所以 Arch 包由 PKGBUILD 显式写进 `depends`，
+  deb/rpm 由 `0003` 声明。**deb/rpm 这条不能走 electron-builder 的 `depends`**：`FpmTarget`
+  只在没有 `depends` 时才回落到 `getDefaultDepends()`，给了它就整份替换掉上游那 9 / 8 条默认依赖，
+  等于把默认表复制进本仓库、以后上游加一条我们不会知道。所以走 `fpm: ['-d', …]` 追加：
+  `FpmTarget` 把 `options.fpm` 原样塞进 fpm 参数，默认依赖表不受影响。包名两边不同——
+  Debian 是 `libdbusmenu-glib4`，Fedora 是 `libdbusmenu`（openSUSE 又是前者），RPM 侧用默认表
+  已经在用的 rich dependency 语法写成 `(libdbusmenu or libdbusmenu-glib4)`。
 - **Linux 上可靠的是托盘菜单，不是单击图标。** 实测把 SNI 的 `Activate` 调过去，Electron 的
   `tray.on('click')` 没有触发（StatusNotifierItem 宿主有权把左键用来弹菜单）。`DesktopTray`
   保留 click 处理是给 Windows 的；Linux 上「打开」走右键菜单，`verify.sh --runtime` 也是按
