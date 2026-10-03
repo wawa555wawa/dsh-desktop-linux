@@ -18,6 +18,26 @@ actually been tested.
 
 ![The DeepSeek Harness desktop application](docs/screenshot.png)
 
+## How this fork differs from the original project
+
+This repository is a fork of
+[ffyfox/dsh-desktop-linux](https://github.com/ffyfox/dsh-desktop-linux), based on its `ccf89ae`:
+the same upstream tag and the same patch series. **The packaging pipeline itself is unchanged** —
+of patches `0001`–`0015` only `0003` is extended and the other 14 are byte-identical, and inside
+`scripts/` only `verify.sh` gained assertions. What this fork adds:
+
+| Change | Content |
+|---|---|
+| New patch `0016-desktop-linux-caption.patch` | A locally drawn Linux title bar: the main window drops its OS frame and reuses the same caption seat Windows gets from Window Controls Overlay (40 DIP band, drag region, sidebar and overlay clearance), with minimize / maximize / close drawn in the preload. The original project's Linux artifacts use the system title bar |
+| Patch `0003` extended | The deb and rpm packages declare `libdbusmenu-glib.so.4`, which the tray menu needs. The original project only declared it in the Arch PKGBUILD `depends`, so an installed deb/rpm could show the tray icon with an empty menu |
+| `scripts/verify.sh` | Two artifact assertions (the main process's dropped frame and window control channel, and the preload's caption module) that catch "source changed but `build:official` was not rerun" |
+| `PKGBUILD` | `source` / `sha256sums` gain `0016` and the new `0003` hash; `pkgrel` 1→2 because the upstream tag did not move and only the packaging side changed — the same handling the original project applied for `0015` |
+| Documentation | The title bar behavior, plus two measured known limitations: a frameless window gets no native menu bar (so "About" and "Check for Updates" have no entry point), and a third-party plugin carrying a NAN native module built for Electron segfaults the Host, which surfaces as a silent `dsh desktop host stopped` |
+
+Tracking upstream works exactly as in the original project: `scripts/fetch-upstream.sh` fetches the
+commit `PKGBUILD`'s `_tag` names and patches are generated against it. This fork forked no build
+logic, so moving to a newer upstream release is still just redoing the patches.
+
 ## What this project produces
 
 What this project ships is **the official Electron application itself**:
@@ -188,6 +208,18 @@ Both tables below are kept up to date as reports come in — please tell us how 
   working.
 - **The three title bar buttons have English tooltips.** Windows draws its caption buttons and gets
   the wording localized from the system; this one is drawn locally.
+- **A third-party plugin with a native module built for Electron stops the whole desktop app.** The
+  Linux Host runs on the bundled Node 24.21 (ABI 137), not Electron's node mode, so a **NAN** native
+  module compiled for Electron (NAN is not ABI-stable) loads and then segfaults on first call. The app
+  reports that it could not start or stopped unexpectedly, the terminal shows only
+  `dsh desktop host stopped`, and stderr is empty — a segfault carries no JavaScript stack. Observed
+  with `@linxin666/dsh-ssh` → `ssh2` → `cpu-features` (its `build/config.gypi` records
+  `node_module_version: 149` while the Host is 137). Crash reports land in
+  `~/.config/@deepseek-ai/dsh-desktop/logs/crash-*-host.log`. Recovery only touches that native
+  module: move it aside
+  (`mv ~/.dsh/profiles/desktop/node_modules/cpu-features{,.disabled}`, and `ssh2` falls back to its
+  JavaScript implementation) or rebuild it for the local Node
+  (`npm rebuild cpu-features --build-from-source`); the plugin itself can stay enabled.
 - **GNOME shows no tray by default — install the extension yourself.** The tray uses freedesktop
   StatusNotifierItem, and GNOME ships no host for it, so you need `gnome-shell-extension-appindicator`
   (Ubuntu installs it by default; Debian needs its own `apt install` and Fedora its `dnf install`).

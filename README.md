@@ -14,6 +14,24 @@ release target."*）。本项目补的就是这一块：让官方打包流水线
 
 ![DeepSeek Harness 桌面端界面](docs/screenshot.png)
 
+## 这个 fork 与原项目的区别
+
+本仓库是 [ffyfox/dsh-desktop-linux](https://github.com/ffyfox/dsh-desktop-linux) 的 fork，
+基线是它的 `ccf89ae`：同一个上游 tag、同一套补丁系列。**打包流水线本身没有改**——补丁
+`0001`–`0015` 里只有 `0003` 被增补，其余 14 个逐字节相同，`scripts/` 里也只有 `verify.sh`
+多了断言。这个 fork 多出来的是：
+
+| 改动 | 内容 |
+|---|---|
+| 新补丁 `0016-desktop-linux-caption.patch` | Linux 自绘标题栏：主窗去掉 OS 边框，复用 Windows caption 的同一套座位（40 DIP 条、拖拽带、侧栏与浮层避让），自绘最小化 / 最大化 / 关闭。原项目的 Linux 产物用的是系统标题栏 |
+| 补丁 `0003` 增补 | deb/rpm 声明托盘菜单要的 `libdbusmenu-glib.so.4`。原项目只在 Arch 的 PKGBUILD `depends` 里声明了它，deb/rpm 装完可能出现「托盘图标在、右键菜单是空的」 |
+| `scripts/verify.sh` | 新增两条产物断言（主进程的去边框与窗口控制通道、preload 的 caption 模块），挡「改了 src 却没重编 `build:official`」 |
+| `PKGBUILD` | `source` / `sha256sums` 加入 `0016`、同步 `0003` 的新哈希；`pkgrel` 1→2（上游 tag 未变，只是打包侧变了，与原项目 `0015` 那次同样的处理） |
+| 文档 | 标题栏的行为说明，以及两条实测出来的已知限制：无边框窗口没有原生菜单条（「关于」「检查更新」没有 UI 入口）；第三方插件里为 Electron 编译的 NAN 原生模块会让 Host 段错误，表现是静默的 `dsh desktop host stopped` |
+
+跟上游的方式与原项目完全一致：`scripts/fetch-upstream.sh` 拉 `PKGBUILD` 里 `_tag` 指的那个
+commit，补丁相对它生成——这个 fork 没有分叉任何构建逻辑，升级上游仍然只是重做补丁。
+
 ## 项目产物
 
 本项目的产物是**官方 Electron 应用本身**：
@@ -159,6 +177,15 @@ Windows / macOS 写了标题栏，所以主窗去掉 OS 边框，改用与 Windo
   快捷键来自应用菜单的加速器，不受影响。
 - **标题栏三个按钮的悬浮提示是英文。** Windows 的窗口按钮由系统绘制、文案由系统本地化，Linux
   这一份是自绘的。
+- **带 Electron 编译原生模块的第三方插件会让整个桌端起不来。** Linux 的 Host 跑在自带的 Node 24.21
+  （ABI 137）上，不是 Electron 的 node 模式；插件里那些**为 Electron 编译的 NAN 原生模块**（NAN 不是
+  ABI 稳定的）能加载，但一调用就段错误。表现是弹「应用无法启动或已意外停止」、终端只有
+  `dsh desktop host stopped`、stderr 一片空白——段错误没有 JS 堆栈。实测案例：
+  `@linxin666/dsh-ssh` → `ssh2` → `cpu-features`（它的 `build/config.gypi` 记着
+  `node_module_version: 149`，Host 是 137）。诊断日志在
+  `~/.config/@deepseek-ai/dsh-desktop/logs/crash-*-host.log`。恢复只需处理那个原生模块：挪走它
+  （`mv ~/.dsh/profiles/desktop/node_modules/cpu-features{,.disabled}`，`ssh2` 会回落到 JS 实现）
+  或按本机 Node 重编（`npm rebuild cpu-features --build-from-source`），插件本身不用停。
 - **GNOME 默认看不到托盘，要自己装扩展。** 托盘走 freedesktop 的 StatusNotifierItem，GNOME 本体
   不提供宿主，装 `gnome-shell-extension-appindicator` 才有（Ubuntu 默认已装；Debian 要自己
   `apt install`，Fedora 要 `dnf install`）。装完还有两个坑：扩展 UUID 是
