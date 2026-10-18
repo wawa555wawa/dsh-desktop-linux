@@ -14,6 +14,24 @@ release target."*）。本项目补的就是这一块：让官方打包流水线
 
 ![DeepSeek Harness 桌面端界面](docs/screenshot.png)
 
+## 这个 fork 与原项目的区别
+
+本仓库是 [ffyfox/dsh-desktop-linux](https://github.com/ffyfox/dsh-desktop-linux) 的 fork，
+基线是它的 `6fa3429`（上游 `dsh-v0.2.1-rc.2`）。**打包流水线本身没有改**：补丁 `0001`–`0017`、
+`scripts/` 与 `PKGBUILD` 的构建逻辑都是原项目原样；这个 fork 只在上面叠加了下面这些。
+
+| 改动 | 内容 |
+|---|---|
+| 新补丁 `0018-desktop-linux-frameless-caption.patch` | 在 `0016` 已经接好的 caption 座位上，把 Linux 主窗做成**无边框**：自绘最小化 / 最大化 / 关闭走 `dsh-desktop:window-controls`，最大化状态由主进程回推。座位本身、拖拽带和「应用 / 编辑」菜单按钮全部保留 |
+| 补丁 `0003` 增补 | deb/rpm 声明托盘菜单要的 `libdbusmenu-glib.so.4`（原项目只在 Arch 的 PKGBUILD `depends` 里声明） |
+| `scripts/verify.sh` | 加一条产物断言：主进程的 `frame: false` 与窗口控制通道、preload 里的 caption 模块 |
+| 已知限制 | 补一条实测结论：第三方插件里为 Electron 编译的 NAN 原生模块会让 Host 段错误 |
+| `PKGBUILD` | 加入 `0018`、同步改动过的 `0003` 的 sha256；`pkgrel` 1→2（上游 tag 未变，只是打包侧变了） |
+| 截图 | 头图换成这个 fork 实际运行的样子（一条自绘标题栏 + 自绘三键 + 应用/编辑菜单） |
+
+与上游同步的方式不变：`scripts/fetch-upstream.sh` 拉 `PKGBUILD` 里 `_tag` 指的那个 commit，
+补丁相对它生成。
+
 ## 项目产物
 
 本项目的产物是**官方 Electron 应用本身**：
@@ -123,7 +141,12 @@ Arch 包只出未打包目录装进 `/opt/deepseek-harness-desktop`，`/usr/bin/
 参考上游在其他平台的实现，补丁 `0013` 把托盘补上：图标常驻，带托盘菜单。
 
 - 找回窗口：托盘菜单「打开」，或再启动一次（第二次启动只聚焦已有实例）。
-- 完全退出：托盘菜单「退出」、菜单栏 `Application` → `Quit`、或 `Ctrl+Q`。
+- 完全退出：托盘菜单「退出」、标题栏「应用」菜单里的「退出」、或 `Ctrl+Q`。
+
+**标题栏是自绘的。** Linux 上 Electron 没有 Window Controls Overlay，所以补丁 `0018` 让主窗去掉
+OS 边框，用与 Windows 相同的 caption 座位画一条 40 DIP 的标题栏：左边是 ☰ 与「应用 / 编辑」菜单
+（补丁 `0016` 把 Windows 那套自绘菜单按钮接到 Linux），右边是自绘的最小化 / 最大化 / 关闭，深浅色
+跟随主题；其余空白处是拖拽带，按住可以移动窗口。「关闭」与系统关闭键同义——隐藏窗口，不是退出。
 
 ### 插件市场的宿主版本
 
@@ -185,6 +208,8 @@ dsh-market 的宿主探测会落空；`0017` 把打包安装的 resources 根传
   `~/.config/@deepseek-ai/dsh-desktop/logs/crash-*-host.log`。恢复只需处理那个原生模块：挪走它
   （`mv ~/.dsh/profiles/desktop/node_modules/cpu-features{,.disabled}`，`ssh2` 会回落到 JS 实现）
   或按本机 Node 重编（`npm rebuild cpu-features --build-from-source`），插件本身不用停。
+- **标题栏三个窗口按钮的悬浮提示是英文。** Windows 的窗口按钮由系统绘制、文案由系统本地化；
+  Linux 这一份是自绘的（`minimize` / `maximize` / `close`），而「应用 / 编辑」菜单按钮的文案走应用语言。
 - **没有自动更新。** 上游的强制更新策略通道只认 `desktop-win` / `desktop-mac` 客户端身份，
   Linux 产物也没有更新通道，所以 Linux 版不嵌入策略、不轮询、不会自己更新。
 - **没有「安装命令行工具」入口。** 官方桌面端在 macOS / Windows 上能从菜单把自带的 `dsh` CLI 装进

@@ -18,6 +18,25 @@ actually been tested.
 
 ![The DeepSeek Harness desktop application](docs/screenshot.png)
 
+## How this fork differs from the original project
+
+This repository is a fork of
+[ffyfox/dsh-desktop-linux](https://github.com/ffyfox/dsh-desktop-linux), based on its `6fa3429`
+(upstream `dsh-v0.2.1-rc.2`). **The packaging pipeline itself is unchanged**: patches `0001`–`0017`,
+the `scripts/` and the `PKGBUILD` build logic are the original project's. This fork only adds:
+
+| Change | Content |
+|---|---|
+| New patch `0018-desktop-linux-frameless-caption.patch` | On top of the caption seat `0016` already wires up, the Linux main window goes **frameless**: the self-drawn minimize / maximize / close route through `dsh-desktop:window-controls`, and the main process publishes the maximized state. The seat itself, its drag region and the `Application / Edit` caption menus are all kept |
+| Patch `0003` extended | The deb and rpm packages declare `libdbusmenu-glib.so.4`, which the tray menu needs (the original project only declares it in the Arch PKGBUILD `depends`) |
+| `scripts/verify.sh` | One artifact assertion: `frame: false` and the window control channel in the main process, and the caption module in the preload |
+| Known limitations | One measured conclusion: a third-party plugin carrying a NAN native module built for Electron segfaults the Host |
+| `PKGBUILD` | Gains `0018` and the new `0003` hash; `pkgrel` 1→2 because the upstream tag did not move and only the packaging side changed |
+| Screenshot | The header image now shows what this fork actually runs (one self-drawn title bar + self-drawn controls + the Application/Edit menus) |
+
+Tracking upstream works exactly as in the original project: `scripts/fetch-upstream.sh` fetches the
+commit `PKGBUILD`'s `_tag` names and the patches are generated against it.
+
 ## What this project produces
 
 What this project ships is **the official Electron application itself**:
@@ -149,7 +168,14 @@ patch `0013` adds the tray: the icon stays for the whole run and carries a tray 
 
 - To get the window back: the tray menu's "Open", or launch the application again (a second launch
   only focuses the instance that is already running).
-- To really quit: the tray menu's "Quit", the `Application` → `Quit` menu item, or `Ctrl+Q`.
+- To really quit: the tray menu's "Quit", "Quit" in the title bar's Application menu, or `Ctrl+Q`.
+
+**The title bar is drawn locally.** Electron carries no Window Controls Overlay on Linux, so patch
+`0018` drops the main window's OS frame and reuses the same caption seat Windows receives from that
+overlay for a 40 DIP title bar: the sidebar toggle and the `Application / Edit` menus on the left
+(patch `0016` wires those Windows-style caption menu buttons to Linux), the self-drawn minimize /
+maximize / close on the right, both following the light and dark theme, and a drag region
+everywhere else. "Close" means the same as the system close button — hide the window, not quit.
 
 ### Plugin market host version
 
@@ -217,6 +243,9 @@ Both tables below are kept up to date as reports come in — please tell us how 
   (`mv ~/.dsh/profiles/desktop/node_modules/cpu-features{,.disabled}`, and `ssh2` falls back to its
   JavaScript implementation) or rebuild it for the local Node
   (`npm rebuild cpu-features --build-from-source`); the plugin itself can stay enabled.
+- **The three window buttons have English tooltips.** Windows draws its caption buttons and gets the
+  wording localized from the system; this one is drawn locally (`minimize` / `maximize` / `close`),
+  while the `Application / Edit` caption menu labels follow the application language.
 - **No auto-update.** Upstream's mandatory-update policy channel only recognises
   `desktop-win` / `desktop-mac` client identities, and Linux artifacts carry no
   update channel, so the Linux build embeds no policy, never polls, and never

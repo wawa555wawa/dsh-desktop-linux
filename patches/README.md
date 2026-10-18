@@ -147,7 +147,7 @@ controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了
 |---|---|---|
 | `0001-desktop-target-model-add-linux-x64.patch` | `desktop-build-paths.{mjs,d.mts}`、`desktop-auto-update-environment.{mjs,d.mts}`、`desktop-release-store.ts` | target 白名单加 `linux-x64`；`desktopTargetPlatform` 返回 `'linux'`；新增 `desktopElectronExecutablePath()`；保留清单的 schema 也认出 `linux-x64`（上游 0.2.1-alpha.3 新增的 `retain-desktop-ci.ts` 把 `resolveDesktopBuildTarget()` 的结果直接交给它，窄联合会让 `tsc -p tsconfig.host.json` 报错） |
 | `0002-package-target-add-linux-x64.patch` | `package-target.ts`、`desktop-upload-plan.ts` | 打包目标表加 `linux-x64`；Linux 构建主机校验（当初还放宽了 `--unsigned` 的平台限制，0.2.1-alpha.2 起上游把那条限制整条删掉，这一半随之消失） |
-| `0003-electron-builder-linux-configuration.patch` | `electron-builder-config.mjs` | Linux 关闭 asar；显式 `executableName`；Linux 不嵌入强制更新策略；Linux 的打包格式与包元数据来自发布设置（见 `0011`）；显式钉住 deb/rpm 的 `packageName` / `packageCategory` 与 `linux.synopsis`；用 `appImage.executableArgs: []` 去掉 legacy 工具集写死的 `--no-sandbox`；Linux 图标显式指定为 SVG —— 单个 PNG 文件会被 electron-builder **原样按自身像素尺寸**装进 `hicolor/1024x1024/apps`，而多个发行版的 `hicolor/index.theme` 并不声明该目录（Arch 就没有），图标会解析不到；SVG 落到 `hicolor/scalable/apps`，所有发行版都声明 |
+| `0003-electron-builder-linux-configuration.patch` | `electron-builder-config.mjs` | Linux 关闭 asar；显式 `executableName`；Linux 不嵌入强制更新策略；Linux 的打包格式与包元数据来自发布设置（见 `0011`）；显式钉住 deb/rpm 的 `packageName` / `packageCategory` 与 `linux.synopsis`；deb/rpm 声明托盘菜单依赖的 `libdbusmenu-glib.so.4`（走 fpm 追加，见「注意」）；用 `appImage.executableArgs: []` 去掉 legacy 工具集写死的 `--no-sandbox`；Linux 图标显式指定为 SVG —— 单个 PNG 文件会被 electron-builder **原样按自身像素尺寸**装进 `hicolor/1024x1024/apps`，而多个发行版的 `hicolor/index.theme` 并不声明该目录（Arch 就没有），图标会解析不到；SVG 落到 `hicolor/scalable/apps`，所有发行版都声明 |
 | `0004-prepare-target-electron-distribution.patch` | `prepare-dsh.ts`、`prepare-runtime.ts` | Electron 分发路径按 target 推导，不再假设「非 mac 即 win32」；打包期 `pnpm install` / 运行时冒烟改用 Host 运行时；`versions.json.node` 记为 payload 实际运行的 Node 版本；Linux 上整块跳过 rc.2 新增的 `prepare:cli`（见「注意」） |
 | `0005-desktop-linux-release-settings.patch` | `desktop-package-environment.{mjs,d.mts}`、`desktop-toolchain-preflight.ts`、`.gitignore`、`.env.linux.example`、`tests/desktop-package-environment.spec.ts` | 支持 `.env.linux`；Linux 不套用 Windows/macOS 专属设置；Linux 不要求策略 origin；修掉 `win32 ? … : macOS` 的隐含假设；Linux 文件白名单加 `MAINTAINER`/`HOMEPAGE`（并从环境里剥掉，保证发布设置只由文件拥有）；打了 rpm 才预检 `rpmbuild` |
 | `0006-desktop-package-linux-scripts.patch` | `apps/desktop/package.json` | `package:linux:x64` / `package:linux:x64:dir` |
@@ -211,6 +211,21 @@ controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了
 
 `0017` 的每个文件也属于 `0008`，且它的 diff 上下文含 `0008` 新增的行，所以**只有排在 `0008` 之后才成立**
 （见开头那条例外）。
+
+## 让 Linux 的标题栏没有系统边框（0018）
+
+| 补丁 | 覆盖文件 | 内容 |
+|---|---|---|
+| `0018-desktop-linux-frameless-caption.patch` | `src/main.ts`、`src/ipc.ts`、`src/preload-app.ts`、`src/preload-linux-caption.ts` | Linux 主窗去掉 OS 边框（`frame: false`）；新的 preload 模块在 `0016` 的 caption 座位上自绘最小化 / 最大化 / 关闭，动作走 `dsh-desktop:window-controls`，最大化状态由主进程经 `window-controls-state` 回推。座位本身、拖拽带、侧栏几何与「应用 / 编辑」菜单全部来自 `0016`，本补丁只补去边框与那三个按钮 |
+
+`0018` 依赖 `0016`：座位标记、拖拽带和菜单按钮由 `0016` 在 preload 里发布，`0018` 只是在这条座位上
+再挂一组控件；单独打 `0018` 会得到一排浮在页面顶部、没有座位的按钮。反过来 `0016` 可以独立成立——
+那就是原项目的样子：保留系统装饰，只统一网页内那一条。
+
+为什么拆成两个补丁而不是并进 `0016`：`0016` 是原项目的设计，`0018` 是这个 fork 的取舍（连系统边框
+一起去掉）。拆开后与上游同步时可以直接沿用他们的 `0016`，`0018` 继续叠在上面；两者的 `main.ts`
+hunk 也不重叠。`0016` 里那句 `window.setMenuBarVisibility(false)` 对无边框主窗已是空操作，但欢迎窗
+仍是「另一条 `new BrowserWindow()` 路径」且保留系统边框，那条路径还需要它，所以没有删。
 
 ## Arch 包与 deb/rpm 构建树的差异（无害）
 
@@ -317,7 +332,19 @@ controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了
   全库没有 `appindicator` 字样，`ldd` / `NEEDED` 里也没有，所以**不需要** libappindicator。
   但托盘菜单要 `libdbusmenu-glib.so.4`——那个库名和 `dbusmenu_*` 符号名都在二进制里，
   却不在 `NEEDED` 里（1519 个未定义动态符号里没有它），即 dlopen。缺了它图标照出、菜单是空的，
-  等于没有退出入口，而 `ldd` 和 namcap 都看不见，所以它由 PKGBUILD 显式写进 `depends`。
+  等于没有退出入口，而 `ldd` 和 namcap 都看不见，所以 Arch 包由 PKGBUILD 显式写进 `depends`，
+  deb/rpm 由 `0003` 声明。**deb/rpm 这条不能走 electron-builder 的 `depends`**：`FpmTarget`
+  只在没有 `depends` 时才回落到 `getDefaultDepends()`，给了它就整份替换掉上游那 9 / 8 条默认依赖，
+  等于把默认表复制进本仓库、以后上游加一条我们不会知道。所以走 `fpm: ['-d', …]` 追加：`FpmTarget`
+  把 `options.fpm` 原样塞进 fpm 参数，默认依赖表不受影响。包名两边不同——Debian 是
+  `libdbusmenu-glib4`，Fedora 是 `libdbusmenu`（openSUSE 又是前者），RPM 侧用默认表已经在用的
+  rich dependency 语法写成 `(libdbusmenu or libdbusmenu-glib4)`。
+- **`0018` 的窗口控制通道校验三件事**：发送者是主窗、发送 frame 是主 frame、URL 前缀是
+  `dsh-app://app/`，任一不满足就静默丢弃（它是 `ipcMain.on` 而不是 `handle`，抛出去就是主进程
+  未捕获异常）。反方向只回推一个布尔：Linux 上只有主进程知道无边框窗口是否最大化，所以由
+  `maximize` / `unmaximize` / `did-finish-load` 三处发 `window-controls-state`。
+- **三个窗口按钮的 tooltip 是英文。** Windows 的标题栏按钮由系统绘制、文案由系统本地化，这一份
+  是自绘的；而「应用 / 编辑」两个菜单按钮的文案走应用语言（`0016` 的 `installWindowsMenu()`）。
 - **Linux 上可靠的是托盘菜单，不是单击图标。** 实测把 SNI 的 `Activate` 调过去，Electron 的
   `tray.on('click')` 没有触发（StatusNotifierItem 宿主有权把左键用来弹菜单）。`DesktopTray`
   保留 click 处理是给 Windows 的；Linux 上「打开」走右键菜单，`verify.sh --runtime` 也是按
