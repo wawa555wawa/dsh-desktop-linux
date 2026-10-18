@@ -176,6 +176,15 @@ dsh-market 的宿主探测会落空；`0017` 把打包安装的 resources 根传
   Debian 13 与 Ubuntu 24.04+ `sudo apt install libfuse2t64`（Ubuntu 22.04 是 `libfuse2`）；
   或 `APPIMAGE_EXTRACT_AND_RUN=1 ./deepseek-harness-*.AppImage` 绕过（解包到 /tmp，多占约 1.2 G）。
   deb / rpm / Arch 包不受影响。
+- **带 Electron 编译原生模块的第三方插件会让整个桌端起不来。** Linux 的 Host 跑在自带的 Node 上
+  （不是 Electron 的 node 模式），插件里那些**为 Electron 编译的 NAN 原生模块**（NAN 不是 ABI 稳定的）
+  能加载，但一调用就段错误。表现是弹「应用无法启动或已意外停止」、终端只有
+  `dsh desktop host stopped`、stderr 一片空白——段错误没有 JS 堆栈。实测案例：
+  `@linxin666/dsh-ssh` → `ssh2` → `cpu-features`（它的 `build/config.gypi` 记着
+  `node_module_version: 149`，而 Host 是更低的 ABI）。诊断日志在
+  `~/.config/@deepseek-ai/dsh-desktop/logs/crash-*-host.log`。恢复只需处理那个原生模块：挪走它
+  （`mv ~/.dsh/profiles/desktop/node_modules/cpu-features{,.disabled}`，`ssh2` 会回落到 JS 实现）
+  或按本机 Node 重编（`npm rebuild cpu-features --build-from-source`），插件本身不用停。
 - **没有自动更新。** 上游的强制更新策略通道只认 `desktop-win` / `desktop-mac` 客户端身份，
   Linux 产物也没有更新通道，所以 Linux 版不嵌入策略、不轮询、不会自己更新。
 - **没有「安装命令行工具」入口。** 官方桌面端在 macOS / Windows 上能从菜单把自带的 `dsh` CLI 装进

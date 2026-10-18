@@ -205,6 +205,18 @@ Both tables below are kept up to date as reports come in — please tell us how 
   (`libfuse2` on Ubuntu 22.04) — or bypass the mount with
   `APPIMAGE_EXTRACT_AND_RUN=1 ./deepseek-harness-*.AppImage` (extracts to /tmp, about 1.2G extra).
   The deb, rpm and Arch packages are unaffected.
+- **A third-party plugin with a native module built for Electron stops the whole desktop app.** The
+  Linux Host runs on the bundled Node (not Electron's node mode), so a **NAN** native module compiled
+  for Electron (NAN is not ABI-stable) loads and then segfaults on first call. The app reports that it
+  could not start or stopped unexpectedly, the terminal shows only `dsh desktop host stopped`, and
+  stderr is empty — a segfault carries no JavaScript stack. Observed with `@linxin666/dsh-ssh` →
+  `ssh2` → `cpu-features` (its `build/config.gypi` records a higher `node_module_version` than the
+  Host's ABI). Crash reports land in
+  `~/.config/@deepseek-ai/dsh-desktop/logs/crash-*-host.log`. Recovery only touches that native
+  module: move it aside
+  (`mv ~/.dsh/profiles/desktop/node_modules/cpu-features{,.disabled}`, and `ssh2` falls back to its
+  JavaScript implementation) or rebuild it for the local Node
+  (`npm rebuild cpu-features --build-from-source`); the plugin itself can stay enabled.
 - **No auto-update.** Upstream's mandatory-update policy channel only recognises
   `desktop-win` / `desktop-mac` client identities, and Linux artifacts carry no
   update channel, so the Linux build embeds no policy, never polls, and never
