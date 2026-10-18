@@ -23,7 +23,7 @@ release target."*）。本项目补的就是这一块：让官方打包流水线
 | 改动 | 内容 |
 |---|---|
 | 新补丁 `0018-desktop-linux-frameless-caption.patch` | 在 `0016` 已经接好的 caption 座位上，把 Linux 主窗做成**无边框**：自绘最小化 / 最大化 / 关闭走 `dsh-desktop:window-controls`，最大化状态由主进程回推。座位本身、拖拽带和「应用 / 编辑」菜单按钮全部保留 |
-| 补丁 `0003` 增补 | deb/rpm 声明托盘菜单要的 `libdbusmenu-glib.so.4`（原项目只在 Arch 的 PKGBUILD `depends` 里声明） |
+| 补丁 `0003` 增补 | deb/rpm 声明托盘菜单要的 `libdbusmenu-glib.so.4`（原项目只在 Arch 的 PKGBUILD `depends` 里声明）；接管 `afterInstall`，清掉旧版本升级留下的空 `node_modules` 目录，让升级自愈 |
 | `scripts/verify.sh` | 加一条产物断言：主进程的 `frame: false` 与窗口控制通道、preload 里的 caption 模块 |
 | 已知限制 | 补一条实测结论：第三方插件里为 Electron 编译的 NAN 原生模块会让 Host 段错误 |
 | `PKGBUILD` | 加入 `0018`、同步改动过的 `0003` 的 sha256；`pkgrel` 1→2（上游 tag 未变，只是打包侧变了） |

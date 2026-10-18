@@ -147,7 +147,7 @@ controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了
 |---|---|---|
 | `0001-desktop-target-model-add-linux-x64.patch` | `desktop-build-paths.{mjs,d.mts}`、`desktop-auto-update-environment.{mjs,d.mts}`、`desktop-release-store.ts` | target 白名单加 `linux-x64`；`desktopTargetPlatform` 返回 `'linux'`；新增 `desktopElectronExecutablePath()`；保留清单的 schema 也认出 `linux-x64`（上游 0.2.1-alpha.3 新增的 `retain-desktop-ci.ts` 把 `resolveDesktopBuildTarget()` 的结果直接交给它，窄联合会让 `tsc -p tsconfig.host.json` 报错） |
 | `0002-package-target-add-linux-x64.patch` | `package-target.ts`、`desktop-upload-plan.ts` | 打包目标表加 `linux-x64`；Linux 构建主机校验（当初还放宽了 `--unsigned` 的平台限制，0.2.1-alpha.2 起上游把那条限制整条删掉，这一半随之消失） |
-| `0003-electron-builder-linux-configuration.patch` | `electron-builder-config.mjs` | Linux 关闭 asar；显式 `executableName`；Linux 不嵌入强制更新策略；Linux 的打包格式与包元数据来自发布设置（见 `0011`）；显式钉住 deb/rpm 的 `packageName` / `packageCategory` 与 `linux.synopsis`；deb/rpm 声明托盘菜单依赖的 `libdbusmenu-glib.so.4`（走 fpm 追加，见「注意」）；用 `appImage.executableArgs: []` 去掉 legacy 工具集写死的 `--no-sandbox`；Linux 图标显式指定为 SVG —— 单个 PNG 文件会被 electron-builder **原样按自身像素尺寸**装进 `hicolor/1024x1024/apps`，而多个发行版的 `hicolor/index.theme` 并不声明该目录（Arch 就没有），图标会解析不到；SVG 落到 `hicolor/scalable/apps`，所有发行版都声明 |
+| `0003-electron-builder-linux-configuration.patch` | `electron-builder-config.mjs` | Linux 关闭 asar；显式 `executableName`；Linux 不嵌入强制更新策略；Linux 的打包格式与包元数据来自发布设置（见 `0011`）；显式钉住 deb/rpm 的 `packageName` / `packageCategory` 与 `linux.synopsis`；deb/rpm 声明托盘菜单依赖的 `libdbusmenu-glib.so.4`（走 fpm 追加，见「注意」）；`afterInstall` 接管 deb/rpm 的 postinst —— 默认模板原文照抄，追加一段清理上一个版本留下的空 `node_modules` 目录（见「注意」）；用 `appImage.executableArgs: []` 去掉 legacy 工具集写死的 `--no-sandbox`；Linux 图标显式指定为 SVG —— 单个 PNG 文件会被 electron-builder **原样按自身像素尺寸**装进 `hicolor/1024x1024/apps`，而多个发行版的 `hicolor/index.theme` 并不声明该目录（Arch 就没有），图标会解析不到；SVG 落到 `hicolor/scalable/apps`，所有发行版都声明 |
 | `0004-prepare-target-electron-distribution.patch` | `prepare-dsh.ts`、`prepare-runtime.ts` | Electron 分发路径按 target 推导，不再假设「非 mac 即 win32」；打包期 `pnpm install` / 运行时冒烟改用 Host 运行时；`versions.json.node` 记为 payload 实际运行的 Node 版本；Linux 上整块跳过 rc.2 新增的 `prepare:cli`（见「注意」） |
 | `0005-desktop-linux-release-settings.patch` | `desktop-package-environment.{mjs,d.mts}`、`desktop-toolchain-preflight.ts`、`.gitignore`、`.env.linux.example`、`tests/desktop-package-environment.spec.ts` | 支持 `.env.linux`；Linux 不套用 Windows/macOS 专属设置；Linux 不要求策略 origin；修掉 `win32 ? … : macOS` 的隐含假设；Linux 文件白名单加 `MAINTAINER`/`HOMEPAGE`（并从环境里剥掉，保证发布设置只由文件拥有）；打了 rpm 才预检 `rpmbuild` |
 | `0006-desktop-package-linux-scripts.patch` | `apps/desktop/package.json` | `package:linux:x64` / `package:linux:x64:dir` |
@@ -339,6 +339,18 @@ hunk 也不重叠。`0016` 里那句 `window.setMenuBarVisibility(false)` 对无
   把 `options.fpm` 原样塞进 fpm 参数，默认依赖表不受影响。包名两边不同——Debian 是
   `libdbusmenu-glib4`，Fedora 是 `libdbusmenu`（openSUSE 又是前者），RPM 侧用默认表已经在用的
   rich dependency 语法写成 `(libdbusmenu or libdbusmenu-glib4)`。
+- **升级会留下空的 `node_modules` 骨架，安装脚本负责清掉。** 产出里的 dsh 是原样拷贝的 pnpm
+  node_modules 树：某个依赖的解析方式变了（0.2.0 时 `dsh-otel` / `dsh-skill-filesystem` 的依赖是
+  嵌套目录，0.2.1 把它们拍平到顶层），rpm / dpkg 会删掉旧文件却留下空目录，而 **Node 解析到以包名
+  命名的空目录时不会跳过它** —— 当成包、找不到入口、直接报错，不会回退到扁平那份真包。实测
+  0.2.0 → 0.2.1 升级后 `chokidar` 与 `@opentelemetry/resources` 各被一个空目录挡住：Host 里
+  `skill-filesystem` 与 `otel` 起不来，`agentPresets/list` 里 standard / ptc / cordis 全部
+  `broken: "skill-filesystem ... never started"`，除极简外的预设都不可用。这个失败在应用日志里
+  看不到（shell 只 pipe 了 Host 的 stdout，stderr 存进崩溃报告），直接跑 `desktop-host` 才看到
+  `dsh: warning: 4 entries did not activate` 与那条 import 错误。`0003` 因此接管 `afterInstall`
+  （给 `afterInstall` 就是**整份替换** electron-builder 的默认模板，所以自带脚本里默认模板原文照搬），
+  只删「不含任何文件与符号链接」的嵌套 `node_modules` 目录，删不到能用的包；Arch 包在
+  `dsh-desktop-linux.install` 的 `post_install` / `post_upgrade` 里做同样的事。
 - **`0018` 的窗口控制通道校验三件事**：发送者是主窗、发送 frame 是主 frame、URL 前缀是
   `dsh-app://app/`，任一不满足就静默丢弃（它是 `ipcMain.on` 而不是 `handle`，抛出去就是主进程
   未捕获异常）。反方向只回推一个布尔：Linux 上只有主进程知道无边框窗口是否最大化，所以由

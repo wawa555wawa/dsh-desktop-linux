@@ -1,4 +1,4 @@
-# pacman 脚本片段。做两件上游 deb/rpm 的 postinst 也在做的事。
+# pacman 脚本片段。做三件上游 deb/rpm 的 postinst 也在做的事。
 #
 # 1. chrome-sandbox 的权限。Chromium 在 Linux 上有两条沙箱路径：setuid 的 chrome-sandbox
 #    （需要 root:root 4755），或者非特权 user namespace（不需要 setuid）。上游优先后者，
@@ -6,6 +6,12 @@
 #    更大的攻击面，所以这里照抄它的判断。
 # 2. AppArmor profile 的加载。Arch 默认不启用 AppArmor，profile 文件在未启用时是惰性的；
 #    没装 apparmor 就跳过。
+# 3. 清掉上一个版本留下的空 node_modules 目录树。产出目录里的 dsh 是原样拷贝的 pnpm
+#    node_modules 树：某个依赖解析方式变了（例如从嵌套变扁平），pacman/rpm/dpkg 会删掉旧文件
+#    却留下空目录，而 Node 解析到以包名命名的空目录时不会跳过它 —— 会当成包并加载失败，
+#    不会回退到扁平那份真包。0.2.0 → 0.2.1 就因为空目录挡住 chokidar /
+#    @opentelemetry/resources，除极简外的 agent 预设全部不可用。只删「不含任何文件与符号链接」
+#    的目录，删不到能用的包。
 
 _fix_chrome_sandbox() {
   local sandbox=/opt/deepseek-harness-desktop/chrome-sandbox
@@ -26,14 +32,29 @@ _load_apparmor_profile() {
   apparmor_parser --replace --write-cache --skip-read-cache "$profile" 2>/dev/null || true
 }
 
+_prune_empty_node_modules() {
+  local root nested
+  for root in /opt/deepseek-harness-desktop/resources/app/dsh/node_modules \
+              /opt/deepseek-harness-desktop/resources/app/node_modules; do
+    [[ -d "$root" ]] || continue
+    while IFS= read -r nested; do
+      if [[ -z "$(find "$nested" \( -type f -o -type l \) -print -quit 2>/dev/null)" ]]; then
+        rm -rf "$nested"
+      fi
+    done < <(find "$root" -mindepth 2 -type d -name node_modules 2>/dev/null)
+  done
+}
+
 post_install() {
   _fix_chrome_sandbox
   _load_apparmor_profile
+  _prune_empty_node_modules
 }
 
 post_upgrade() {
   _fix_chrome_sandbox
   _load_apparmor_profile
+  _prune_empty_node_modules
 }
 
 pre_remove() {

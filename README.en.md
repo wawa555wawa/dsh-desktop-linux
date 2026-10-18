@@ -28,7 +28,7 @@ the `scripts/` and the `PKGBUILD` build logic are the original project's. This f
 | Change | Content |
 |---|---|
 | New patch `0018-desktop-linux-frameless-caption.patch` | On top of the caption seat `0016` already wires up, the Linux main window goes **frameless**: the self-drawn minimize / maximize / close route through `dsh-desktop:window-controls`, and the main process publishes the maximized state. The seat itself, its drag region and the `Application / Edit` caption menus are all kept |
-| Patch `0003` extended | The deb and rpm packages declare `libdbusmenu-glib.so.4`, which the tray menu needs (the original project only declares it in the Arch PKGBUILD `depends`) |
+| Patch `0003` extended | The deb and rpm packages declare `libdbusmenu-glib.so.4`, which the tray menu needs (the original project only declares it in the Arch PKGBUILD `depends`); `afterInstall` is taken over to prune empty `node_modules` directories left by a previous version, so upgrades heal themselves |
 | `scripts/verify.sh` | One artifact assertion: `frame: false` and the window control channel in the main process, and the caption module in the preload |
 | Known limitations | One measured conclusion: a third-party plugin carrying a NAN native module built for Electron segfaults the Host |
 | `PKGBUILD` | Gains `0018` and the new `0003` hash; `pkgrel` 1→2 because the upstream tag did not move and only the packaging side changed |

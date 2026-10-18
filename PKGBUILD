@@ -17,7 +17,7 @@
 
 pkgname=dsh-desktop-linux
 pkgver=0.2.1rc2
-pkgrel=2
+pkgrel=3
 _tag='dsh-v0.2.1-rc.2'
 _commit='687f282e8625c6b8d11ff58211a90524be2e4317'
 # GitHub 源码包的顶层目录名 = <repo>-<tag>，tag 自带的 "v" 不剥（实测 dsh-v0.2.1-alpha.2）
@@ -76,7 +76,7 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/deepseek-ai/deepseek-harnes
 sha256sums=('dec9f36f9b25028ca8de2a7520e16029ad36e8328078fb33b85b1b9b338d5690'
             'f201c9826fa2ab835b335785dc01063a3c173de29768e6ef253654d75dae1b42'
             '2c551d85a71e27599d70a5f2dd36ce5536f28f113f2e9dd7145803abc4512356'
-            '1334a7eaaf946ae2871aa00a180650237be0a69f9215c532a0e933246543b08e'
+            '01e494e279d475c74cdb5c10fb5a6620fdc7d368912df95404d7cd3b202365bd'
             '0d47d53b952a3e5e7a1e68e5db89199a2bc550f34867f30fef0867a96c79ace7'
             'a70e694d28806f416e066e44571f03039ed433553648bcab582f95d4e788d03e'
             '0d39845c9252adfe2d2702cb0274c2d505ee0114db7535e24eedcdc609fdb429'
