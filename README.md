@@ -14,24 +14,6 @@ release target."*）。本项目补的就是这一块：让官方打包流水线
 
 ![DeepSeek Harness 桌面端界面](docs/screenshot.png)
 
-## 这个 fork 与原项目的区别
-
-本仓库是 [ffyfox/dsh-desktop-linux](https://github.com/ffyfox/dsh-desktop-linux) 的 fork，
-基线是它的 `ccf89ae`：同一个上游 tag、同一套补丁系列。**打包流水线本身没有改**——补丁
-`0001`–`0015` 里只有 `0003` 被增补，其余 14 个逐字节相同，`scripts/` 里也只有 `verify.sh`
-多了断言。这个 fork 多出来的是：
-
-| 改动 | 内容 |
-|---|---|
-| 新补丁 `0016-desktop-linux-caption.patch` | Linux 自绘标题栏：主窗去掉 OS 边框，复用 Windows caption 的同一套座位（40 DIP 条、拖拽带、侧栏与浮层避让），自绘最小化 / 最大化 / 关闭。原项目的 Linux 产物用的是系统标题栏 |
-| 补丁 `0003` 增补 | deb/rpm 声明托盘菜单要的 `libdbusmenu-glib.so.4`。原项目只在 Arch 的 PKGBUILD `depends` 里声明了它，deb/rpm 装完可能出现「托盘图标在、右键菜单是空的」 |
-| `scripts/verify.sh` | 新增两条产物断言（主进程的去边框与窗口控制通道、preload 的 caption 模块），挡「改了 src 却没重编 `build:official`」 |
-| `PKGBUILD` | `source` / `sha256sums` 加入 `0016`、同步 `0003` 的新哈希；`pkgrel` 1→2（上游 tag 未变，只是打包侧变了，与原项目 `0015` 那次同样的处理） |
-| 文档 | 标题栏的行为说明，以及两条实测出来的已知限制：无边框窗口没有原生菜单条（「关于」「检查更新」没有 UI 入口）；第三方插件里为 Electron 编译的 NAN 原生模块会让 Host 段错误，表现是静默的 `dsh desktop host stopped` |
-
-跟上游的方式与原项目完全一致：`scripts/fetch-upstream.sh` 拉 `PKGBUILD` 里 `_tag` 指的那个
-commit，补丁相对它生成——这个 fork 没有分叉任何构建逻辑，升级上游仍然只是重做补丁。
-
 ## 项目产物
 
 本项目的产物是**官方 Electron 应用本身**：
@@ -44,9 +26,11 @@ commit，补丁相对它生成——这个 fork 没有分叉任何构建逻辑�
 
 ## 安装
 
+可从 [Releases](https://github.com/ffyfox/dsh-desktop-linux/releases) 下载 AppImage / deb / rpm 产物。
+
 | 发行版 | 格式 | 安装方式 |
 |---|---|---|
-| 通用 | AppImage | 从 [Releases](https://github.com/ffyfox/dsh-desktop-linux/releases) 下载，`chmod +x` 后直接运行 |
+| 通用 | AppImage | `chmod +x` 后直接运行 |
 | Debian / Ubuntu | deb | `sudo apt install ./deepseek-harness-*.deb` |
 | Fedora / RHEL | rpm | `sudo dnf install ./deepseek-harness-*.rpm` |
 | Arch Linux | PKGBUILD | 仓库自带，本地 `makepkg` 构建（未发布到 AUR），见 [Arch 包](#arch-包) |
@@ -55,7 +39,7 @@ commit，补丁相对它生成——这个 fork 没有分叉任何构建逻辑�
 
 ## 从源码构建
 
-依赖：Node 22.19+ 或 24+、**pnpm 11**、git。
+依赖：Node 22.19+ 或 24+（**别用发行版打包的 Node 22**，见下）、**pnpm 11**、git。
 打 rpm 还需要系统有 `rpmbuild`。
 
 ```bash
@@ -80,8 +64,19 @@ deb / rpm 的 `Maintainer:` / `Homepage:` 来自 `upstream/apps/desktop/.env.lin
 
 ### 硬性前提
 
-**必须用 pnpm 11。** 上游仓库声明 `packageManager: pnpm@11.7.0`，pnpm 11 会自己切到该版本；
-pnpm 9 会在 `pnpm install` 报 `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`。
+**Node 要带 TypeScript 类型剥离。** nodejs.org 的官方包 22.19+ / 24+ 都有，但**发行版自己打的可能没有**
+（Ubuntu 26.04.1 的 `nodejs 22.22.1` 实测 `process.features.typescript` 为 `false`，加
+`--experimental-strip-types` 也仍是 `false`），构建会在第一步 `build:official` 报
+`build: Node.js TypeScript type stripping is unavailable`。用官方 Node（我们 CI 钉的是 Node 24）。
+
+**必须用 pnpm 11，而且要是 npm 或 corepack 装的那种。** 上游仓库声明
+`packageManager: pnpm@11.28.5`，pnpm 11 会自己切到该版本；pnpm 9 会在 `pnpm install` 报
+`ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`。官方 standalone 安装器与 Homebrew 给的是编译好的二进制，
+上游三处脚本会 `node $npm_execpath` 而报 `SyntaxError`；`build.sh` 碰到这种会退到隔离版并说明。
+
+**PKGBUILD 做同一套检查。** 它在 `build()` 里内联了同样的入口探测：系统 pnpm 不是 11.x、或它
+交给脚本的入口不能被 node 执行时，退到隔离版 `~/.local/share/dsh-pnpm-11`；两者都不可用则打印
+安装命令后停下，而不是以 `SyntaxError` 的形式炸在打包流水线中途。
 
 ## Arch 包
 
@@ -112,33 +107,30 @@ Arch 包只出未打包目录装进 `/opt/deepseek-harness-desktop`，`/usr/bin/
   （真 Node 读不了归档），这是 `linux-unpacked` 体积偏大的原因。
 - **profile 是独占的。** 桌面端用 `$DSH_HOME/profiles/desktop`，CLI 连参数层面都拒绝这个 profile
   （`error: profile "desktop" is managed exclusively by the Electron application`）。
-  会话、设置、凭据仍在 `$DSH_HOME` 根上，与 CLI 共享。
+  会话、设置、凭据仍在 `$DSH_HOME` 根上，与 CLI 共享。想复用 web 的配置就做一次性迁移：退出桌面端后把
+  `$DSH_HOME/profiles/web` 复制或改名过去，之后两边各自演化；用符号链接共用同一份目录实测可行，但两边会
+  互相改写，桌面端的启动恢复动作也会作用到这份共享目录，两边版本跨度较大时可能出现未知问题。
 - **沙箱。** 内核支持非特权 user namespace 时走 namespace 沙箱（渲染进程在独立 user namespace + seccomp）；
   不支持才退回 setuid `chrome-sandbox`。AppImage 交给 AppRun 自己探测，deb / rpm / Arch 包在
   postinst 里做同样的判断。
 
 ### 关窗、托盘与退出
 
-**关窗不是退出——这是上游的设计。** 上游 `main.ts` 拦截主窗口的 `close`
-并改为隐藏：Host 继续跑、正在跑的任务不中断，会话写锁也不释放（每个会话一把内核 flock，且刻意
-没有过期机制）。所以关窗之后，另一个 DSH 实例（比如终端里的 `dsh web`）打开同一个会话时，会看到
-官方提示「当前会话已被占用，可能是其他正在运行的 DSH 导致的……请退出其他正在运行的 DSH 后重试」。
+**关窗不会完全退出程序——这是上游的设计。** 上游 `main.ts` 拦截主窗口的 `close`
+并改为**隐藏**：Host 继续跑、正在跑的任务不中断，会话写锁也不释放。
 
-上游给「回到隐藏窗口」准备了两条路，但文档里写到的只有 Windows 的托盘和 macOS 的 Dock，
-**Linux 原本一条都没有**。补丁 `0013` 把托盘补上：图标常驻，带托盘菜单。托盘菜单「退出」走与
-`Ctrl+Q` 相同的确认流程（Host 有在跑的任务或定时任务时会先问一次）。
+上游没有给 Linux 准备 **「回到隐藏窗口」** 或 **「完全退出程序」** 的路径。
+参考上游在其他平台的实现，补丁 `0013` 把托盘补上：图标常驻，带托盘菜单。
 
-- 托盘菜单：右键点图标弹出。
-- 真正退出：托盘右键菜单的「退出」、或 `Ctrl+Q`。
-- 找回窗口：再启动一次即可（第二次启动只聚焦已有实例）。
+- 找回窗口：托盘菜单「打开」，或再启动一次（第二次启动只聚焦已有实例）。
+- 完全退出：托盘菜单「退出」、菜单栏 `Application` → `Quit`、或 `Ctrl+Q`。
 
-**标题栏也是自绘的（补丁 `0016`）。** Linux 上 Electron 没有 Window Controls Overlay，上游也只给
-Windows / macOS 写了标题栏，所以主窗去掉 OS 边框，改用与 Windows 相同的 caption 座位画一条 40 DIP
-的标题栏：右侧是最小化 / 最大化 / 关闭（深浅色跟随主题），其余是拖拽带，按住空白处可以移动窗口。
-「关闭」与系统关闭键同义——隐藏窗口，不是退出。
+### 插件市场的宿主版本
 
-无边框窗口里不会再有原生菜单条：这是 Electron 的行为（`RootView::SetMenu` 对无边框窗口直接返回），
-不是被本项目藏掉的，Alt 也唤不出来。**所以「关于」「检查更新」在界面上没有入口**，见[已知限制](#已知限制)。
+设置 → 插件市场里能正常读到宿主版本（「宿主版本未知」已由补丁 `0017` 修复）：Linux 的
+Host 进程是独立 Node（见补丁 `0008`），没有 Electron 的 `process.resourcesPath`，
+dsh-market 的宿主探测会落空；`0017` 把打包安装的 resources 根传给 Host 并回填，
+探测恢复，兼容性筛选与「更新到兼容版本」随之可用。
 
 ## 验证状态
 
@@ -171,21 +163,6 @@ Windows / macOS 写了标题栏，所以主窗去掉 OS 边框，改用与 Windo
 
 ## 已知限制
 
-- **没有原生菜单条，「关于」「检查更新」在界面上没有入口。** 自绘标题栏（补丁 `0016`）让主窗无边框，
-  而 Electron 不为无边框窗口绘制菜单条（`RootView::SetMenu` 对无边框窗口直接返回，Alt 也唤不出来），
-  标题栏里也没有挂 Application / Edit 菜单。退出仍有托盘菜单与 `Ctrl+Q`；`Ctrl+C` / `Ctrl+V` 这类
-  快捷键来自应用菜单的加速器，不受影响。
-- **标题栏三个按钮的悬浮提示是英文。** Windows 的窗口按钮由系统绘制、文案由系统本地化，Linux
-  这一份是自绘的。
-- **带 Electron 编译原生模块的第三方插件会让整个桌端起不来。** Linux 的 Host 跑在自带的 Node 24.21
-  （ABI 137）上，不是 Electron 的 node 模式；插件里那些**为 Electron 编译的 NAN 原生模块**（NAN 不是
-  ABI 稳定的）能加载，但一调用就段错误。表现是弹「应用无法启动或已意外停止」、终端只有
-  `dsh desktop host stopped`、stderr 一片空白——段错误没有 JS 堆栈。实测案例：
-  `@linxin666/dsh-ssh` → `ssh2` → `cpu-features`（它的 `build/config.gypi` 记着
-  `node_module_version: 149`，Host 是 137）。诊断日志在
-  `~/.config/@deepseek-ai/dsh-desktop/logs/crash-*-host.log`。恢复只需处理那个原生模块：挪走它
-  （`mv ~/.dsh/profiles/desktop/node_modules/cpu-features{,.disabled}`，`ssh2` 会回落到 JS 实现）
-  或按本机 Node 重编（`npm rebuild cpu-features --build-from-source`），插件本身不用停。
 - **GNOME 默认看不到托盘，要自己装扩展。** 托盘走 freedesktop 的 StatusNotifierItem，GNOME 本体
   不提供宿主，装 `gnome-shell-extension-appindicator` 才有（Ubuntu 默认已装；Debian 要自己
   `apt install`，Fedora 要 `dnf install`）。装完还有两个坑：扩展 UUID 是
@@ -199,12 +176,6 @@ Windows / macOS 写了标题栏，所以主窗去掉 OS 边框，改用与 Windo
   Debian 13 与 Ubuntu 24.04+ `sudo apt install libfuse2t64`（Ubuntu 22.04 是 `libfuse2`）；
   或 `APPIMAGE_EXTRACT_AND_RUN=1 ./deepseek-harness-*.AppImage` 绕过（解包到 /tmp，多占约 1.2 G）。
   deb / rpm / Arch 包不受影响。
-- **Electron 版本比上游 lockfile 钉的高（44.4.5）。** 上游 `apps/desktop/package.json` 写的是
-  `^44.0.0`，caret 本来就允许；但它的 lockfile 把解析钉死在 44.0.0，而那个版本的**托盘项在 KDE 与
-  GNOME 下都注册不上**（上游回归 [electron#53213](https://github.com/electron/electron/issues/53213)，
-  修复 [electron#53214](https://github.com/electron/electron/pull/53214) 直到 2026-08-26 才合并，
-  而 44.0.0 发布于 08-25）。补丁 `0014` 把 lockfile 解到 44.4.5，代价是 Linux 产物自带的 Chromium
-  比上游发布的桌面端更新一点。
 - **没有自动更新。** 上游的强制更新策略通道只认 `desktop-win` / `desktop-mac` 客户端身份，
   Linux 产物也没有更新通道，所以 Linux 版不嵌入策略、不轮询、不会自己更新。
 - **没有「安装命令行工具」入口。** 官方桌面端在 macOS / Windows 上能从菜单把自带的 `dsh` CLI 装进

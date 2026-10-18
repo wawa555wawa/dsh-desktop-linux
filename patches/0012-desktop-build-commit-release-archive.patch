@@ -1,5 +1,18 @@
+diff --git a/apps/desktop/scripts/desktop-build-commit.d.mts b/apps/desktop/scripts/desktop-build-commit.d.mts
+index 82118e24..57a792cb 100644
+--- a/apps/desktop/scripts/desktop-build-commit.d.mts
++++ b/apps/desktop/scripts/desktop-build-commit.d.mts
+@@ -11,7 +11,7 @@ export const DESKTOP_BUILD_COMMIT_ENV: 'DSH_DESKTOP_BUILD_COMMIT'
+ export const DESKTOP_BUILD_DIRTY_ENV: 'DSH_DESKTOP_BUILD_DIRTY'
+ 
+ /**
+- * Read the checkout's current commit and whether it carries uncommitted changes.
++ * Read the commit being packaged and whether its tree carried uncommitted changes.
+  * @param repositoryRoot - Directory to inspect.
+  * @returns The commit being packaged and whether its tree was modified.
+  */
 diff --git a/apps/desktop/scripts/desktop-build-commit.mjs b/apps/desktop/scripts/desktop-build-commit.mjs
-index 28d7cda..18815ce 100644
+index 28d7cda5..3cb19643 100644
 --- a/apps/desktop/scripts/desktop-build-commit.mjs
 +++ b/apps/desktop/scripts/desktop-build-commit.mjs
 @@ -7,7 +7,7 @@
@@ -11,37 +24,39 @@ index 28d7cda..18815ce 100644
  
  /** Environment variable that carries the packaged commit. */
  export const DESKTOP_BUILD_COMMIT_ENV = 'DSH_DESKTOP_BUILD_COMMIT'
-@@ -17,10 +17,28 @@ export const DESKTOP_BUILD_DIRTY_ENV = 'DSH_DESKTOP_BUILD_DIRTY'
+@@ -16,11 +16,29 @@ export const DESKTOP_BUILD_COMMIT_ENV = 'DSH_DESKTOP_BUILD_COMMIT'
+ export const DESKTOP_BUILD_DIRTY_ENV = 'DSH_DESKTOP_BUILD_DIRTY'
  
  /**
-  * Read the checkout's current commit and whether it carries uncommitted changes.
+- * Read the checkout's current commit and whether it carries uncommitted changes.
++ * Read the commit being packaged and whether its tree carried uncommitted changes.
 + *
-+ * A release archive is not a checkout, so a directory without Git metadata reads the commit the
-+ * packaging environment recorded instead, and refuses the build when nothing recorded one.
++ * A packaging run records the pair once and passes it to every child process, which run against a
++ * build tree rather than a checkout — a build tree that happens to sit inside an unrelated checkout
++ * would otherwise be mistaken for the sources being packaged. With no recording, read the checkout;
++ * a directory that is neither refuses the build.
   * @param {string} repositoryRoot - Directory to inspect.
   * @returns {{ commit: string, dirty: boolean }} The commit being packaged and whether its tree was modified.
   */
  export function readDesktopBuildCommit(repositoryRoot) {
++  const recorded = resolveDesktopBuildCommit(process.env)
++  if (recorded !== undefined) return recorded
 +  const probe = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], {
 +    cwd: repositoryRoot,
 +    encoding: 'utf8',
 +    stdio: ['ignore', 'pipe', 'ignore'],
 +  })
 +  if (probe.error !== undefined || probe.status !== 0 || probe.stdout.trim() !== 'true') {
-+    const recorded = resolveDesktopBuildCommit(process.env)
-+    if (recorded === undefined) {
-+      throw new Error(
-+        `desktop build commit: ${repositoryRoot} is not a Git checkout; `
-+        + `set ${DESKTOP_BUILD_COMMIT_ENV} and ${DESKTOP_BUILD_DIRTY_ENV} to package it`,
-+      )
-+    }
-+    return recorded
++    throw new Error(
++      `desktop build commit: ${repositoryRoot} is not a Git checkout; `
++      + `set ${DESKTOP_BUILD_COMMIT_ENV} and ${DESKTOP_BUILD_DIRTY_ENV} to package it`,
++    )
 +  }
    const git = (args) => execFileSync('git', args, { cwd: repositoryRoot, encoding: 'utf8' }).trim()
    return {
      commit: git(['rev-parse', 'HEAD']),
 diff --git a/apps/desktop/tests/desktop-build-commit.spec.ts b/apps/desktop/tests/desktop-build-commit.spec.ts
-index 57016a5..74b6223 100644
+index 57016a5e..2c7dd460 100644
 --- a/apps/desktop/tests/desktop-build-commit.spec.ts
 +++ b/apps/desktop/tests/desktop-build-commit.spec.ts
 @@ -1,7 +1,7 @@
@@ -53,10 +68,22 @@ index 57016a5..74b6223 100644
  import {
    DESKTOP_BUILD_COMMIT_ENV,
    DESKTOP_BUILD_DIRTY_ENV,
-@@ -45,6 +45,31 @@ describe('desktop build commit', () => {
+@@ -45,6 +45,43 @@ describe('desktop build commit', () => {
      expect(packaged.commit).toMatch(/^[0-9a-f]{40}$/u)
      expect(typeof packaged.dirty).toBe('boolean')
    })
++
++  it('prefers the recorded commit over the checkout the directory sits in', () => {
++    vi.stubEnv(DESKTOP_BUILD_COMMIT_ENV, COMMIT)
++    vi.stubEnv(DESKTOP_BUILD_DIRTY_ENV, '0')
++    try {
++      expect(readDesktopBuildCommit(join(import.meta.dirname, '..', '..', '..')))
++        .toEqual({ commit: COMMIT, dirty: false })
++    }
++    finally {
++      vi.unstubAllEnvs()
++    }
++  })
 +
 +  it('reads the recorded commit where the directory is not a checkout', async () => {
 +    const directory = await mkdtemp(join(tmpdir(), 'dsh-release-archive-'))

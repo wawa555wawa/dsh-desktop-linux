@@ -18,26 +18,6 @@ actually been tested.
 
 ![The DeepSeek Harness desktop application](docs/screenshot.png)
 
-## How this fork differs from the original project
-
-This repository is a fork of
-[ffyfox/dsh-desktop-linux](https://github.com/ffyfox/dsh-desktop-linux), based on its `ccf89ae`:
-the same upstream tag and the same patch series. **The packaging pipeline itself is unchanged** —
-of patches `0001`–`0015` only `0003` is extended and the other 14 are byte-identical, and inside
-`scripts/` only `verify.sh` gained assertions. What this fork adds:
-
-| Change | Content |
-|---|---|
-| New patch `0016-desktop-linux-caption.patch` | A locally drawn Linux title bar: the main window drops its OS frame and reuses the same caption seat Windows gets from Window Controls Overlay (40 DIP band, drag region, sidebar and overlay clearance), with minimize / maximize / close drawn in the preload. The original project's Linux artifacts use the system title bar |
-| Patch `0003` extended | The deb and rpm packages declare `libdbusmenu-glib.so.4`, which the tray menu needs. The original project only declared it in the Arch PKGBUILD `depends`, so an installed deb/rpm could show the tray icon with an empty menu |
-| `scripts/verify.sh` | Two artifact assertions (the main process's dropped frame and window control channel, and the preload's caption module) that catch "source changed but `build:official` was not rerun" |
-| `PKGBUILD` | `source` / `sha256sums` gain `0016` and the new `0003` hash; `pkgrel` 1→2 because the upstream tag did not move and only the packaging side changed — the same handling the original project applied for `0015` |
-| Documentation | The title bar behavior, plus two measured known limitations: a frameless window gets no native menu bar (so "About" and "Check for Updates" have no entry point), and a third-party plugin carrying a NAN native module built for Electron segfaults the Host, which surfaces as a silent `dsh desktop host stopped` |
-
-Tracking upstream works exactly as in the original project: `scripts/fetch-upstream.sh` fetches the
-commit `PKGBUILD`'s `_tag` names and patches are generated against it. This fork forked no build
-logic, so moving to a newer upstream release is still just redoing the patches.
-
 ## What this project produces
 
 What this project ships is **the official Electron application itself**:
@@ -51,9 +31,11 @@ workspace build, then package with electron-builder.
 
 ## Install
 
+Download the AppImage, deb and rpm artifacts from [Releases](https://github.com/ffyfox/dsh-desktop-linux/releases).
+
 | Distribution | Format | How |
 |---|---|---|
-| Any | AppImage | Download from [Releases](https://github.com/ffyfox/dsh-desktop-linux/releases), `chmod +x`, run it |
+| Any | AppImage | `chmod +x`, run it |
 | Debian / Ubuntu | deb | `sudo apt install ./deepseek-harness-*.deb` |
 | Fedora / RHEL | rpm | `sudo dnf install ./deepseek-harness-*.rpm` |
 | Arch Linux | PKGBUILD | Shipped in the repo, built locally with `makepkg` (not published to the AUR) — see [Arch package](#arch-package) |
@@ -63,7 +45,7 @@ installed, `dsh://` links are handed to it.
 
 ## Building from source
 
-Requirements: Node 22.19+ or 24+, **pnpm 11**, and git.
+Requirements: Node 22.19+ or 24+ (**not your distro's Node 22** — see below), **pnpm 11**, and git.
 Building the rpm additionally needs `rpmbuild` on the system.
 
 ```bash
@@ -90,11 +72,24 @@ The deb / rpm `Maintainer:` / `Homepage:` come from `upstream/apps/desktop/.env.
 To change them, edit that file: **the same-named environment variables are filtered out by
 upstream**, so `DSH_DESKTOP_LINUX_MAINTAINER=… build.sh --deb` is silently ignored.
 
-### Hard requirement
+### Hard requirements
 
-**pnpm 11 is required.** The upstream repository declares
-`packageManager: pnpm@11.7.0`, and pnpm 11 switches to that version by itself.
-pnpm 9 fails `pnpm install` with `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`.
+**Node must have TypeScript type stripping enabled.** Release builds from nodejs.org do, for both
+22.19+ and 24+, but distro packages may not: Ubuntu 26.04.1's `nodejs 22.22.1` reports
+`process.features.typescript === false`, and `--experimental-strip-types` does not help either, so the
+build dies in its first step (`build:official`) with
+`build: Node.js TypeScript type stripping is unavailable`. Use Node from nodejs.org; CI pins Node 24.
+
+**pnpm 11 is required, installed via npm or corepack.** The upstream repository declares
+`packageManager: pnpm@11.28.5`, and pnpm 11 switches to that version by itself.
+pnpm 9 fails `pnpm install` with `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`. The official standalone
+installer and Homebrew ship a compiled binary, and three upstream scripts then run
+`node $npm_execpath` and die with `SyntaxError`; `build.sh` falls back to the isolated copy and says so.
+
+**PKGBUILD runs the same check.** `build()` carries an inlined copy of that entry probe: if the
+system pnpm is not 11.x, or the entry it hands to scripts cannot be run by node, it falls back to
+`~/.local/share/dsh-pnpm-11`; if neither works it prints the install command and stops, instead of
+dying with `SyntaxError` in the middle of the packaging pipeline.
 
 ## Arch package
 
@@ -130,8 +125,12 @@ Three design points worth knowing:
 - **The profile is exclusive.** The desktop uses `$DSH_HOME/profiles/desktop`, and
   the CLI rejects that profile at the argument layer
   (`error: profile "desktop" is managed exclusively by the Electron application`).
-  Sessions, settings, and credentials still live at the root of `$DSH_HOME`,
-  shared with the CLI.
+  Sessions, settings, and credentials still live at the root of `$DSH_HOME`, shared
+  with the CLI. To reuse your web configuration, migrate it once: quit the desktop app,
+  then copy or rename `$DSH_HOME/profiles/web` into place and let the two evolve
+  separately afterwards; sharing a single directory through a symlink works in practice,
+  but the two sides overwrite each other, the desktop's startup recovery acts on that
+  shared directory as well, and unknown problems may appear once the two sides diverge.
 - **Sandboxing.** Where the kernel supports unprivileged user namespaces, the
   renderer runs in a namespace sandbox (separate user namespace + seccomp); only
   where it does not does it fall back to a setuid `chrome-sandbox`. The AppImage
@@ -140,34 +139,25 @@ Three design points worth knowing:
 
 ### Closing, the tray, and quitting
 
-**Closing the window is not quitting — that is upstream's design.** Upstream
-`main.ts` intercepts the main window's `close` and hides it instead: the Host keeps running, tasks
-are not interrupted, and session write locks are not released (one kernel flock per session, with
-deliberately no expiry). So after a close, another DSH instance — a terminal `dsh web`, say — that
-opens the same session gets the official message "This session is already in use, possibly by
-another running DSH instance … Quit other running DSH instances and try again."
+**Closing the window does not fully quit the application — that is upstream's design.** Upstream
+`main.ts` intercepts the main window's `close` and **hides** it instead: the Host keeps running,
+tasks in progress are not interrupted, and session write locks are not released.
 
-Upstream provides two ways back to a hidden window, but what its documentation covers is the Windows
-tray and the macOS Dock; **Linux had neither.** Patch `0013` adds the tray: the icon stays for the
-whole run and carries a tray menu. The tray menu's "Quit" goes through the same confirmation as
-`Ctrl+Q` (it asks first when the Host has running or scheduled tasks).
+Upstream provides no Linux path to **"get back to the hidden window"** or to
+**"fully quit the application"**. Following upstream's implementation on the other platforms,
+patch `0013` adds the tray: the icon stays for the whole run and carries a tray menu.
 
-- The tray menu opens on a right click.
-- To really quit: the tray menu's "Quit" or `Ctrl+Q`.
-- To get the window back: launch the application again (a second launch only focuses the instance
-  that is already running).
+- To get the window back: the tray menu's "Open", or launch the application again (a second launch
+  only focuses the instance that is already running).
+- To really quit: the tray menu's "Quit", the `Application` → `Quit` menu item, or `Ctrl+Q`.
 
-**The title bar is drawn locally too (patch `0016`).** Electron carries no Window Controls Overlay on
-Linux, and upstream wrote a title bar for Windows and macOS only, so the main window drops its OS
-frame and uses the same caption seat Windows receives from that overlay: a 40 DIP band with the
-minimize / maximize / close controls on the right (they follow the light and dark theme) and a drag
-region everywhere else, so holding an empty spot moves the window. "Close" means the same as the
-system close button — hide the window, not quit.
+### Plugin market host version
 
-A frameless window never gets a native menu bar: that is Electron's behavior (`RootView::SetMenu`
-returns early for frameless windows), not something this project hides, and Alt cannot bring it back.
-**So "About" and "Check for Updates" have no entry point in the UI**; see
-[Known limitations](#known-limitations).
+The plugin market reads the host version correctly ("Host version unknown" is fixed by patch
+`0017`): on Linux the Host process is a standalone Node (see patch `0008`) and has no Electron
+`process.resourcesPath`, so dsh-market's host lookup came up empty. `0017` passes the packaged
+resources root to the Host and republishes it there; the lookup works again, and so do the
+compatibility filter and "update to a compatible version".
 
 ## Validation status
 
@@ -200,26 +190,6 @@ Both tables below are kept up to date as reports come in — please tell us how 
 
 ## Known limitations
 
-- **No native menu bar, so "About" and "Check for Updates" have no entry point in the UI.** The local
-  title bar (patch `0016`) makes the main window frameless, and Electron draws no menu bar in a
-  frameless window (`RootView::SetMenu` returns early, and Alt cannot reveal it either); the title
-  bar carries no Application / Edit menu. Quitting is still available from the tray menu and
-  `Ctrl+Q`, and accelerators such as `Ctrl+C` / `Ctrl+V` come from the application menu, so they keep
-  working.
-- **The three title bar buttons have English tooltips.** Windows draws its caption buttons and gets
-  the wording localized from the system; this one is drawn locally.
-- **A third-party plugin with a native module built for Electron stops the whole desktop app.** The
-  Linux Host runs on the bundled Node 24.21 (ABI 137), not Electron's node mode, so a **NAN** native
-  module compiled for Electron (NAN is not ABI-stable) loads and then segfaults on first call. The app
-  reports that it could not start or stopped unexpectedly, the terminal shows only
-  `dsh desktop host stopped`, and stderr is empty — a segfault carries no JavaScript stack. Observed
-  with `@linxin666/dsh-ssh` → `ssh2` → `cpu-features` (its `build/config.gypi` records
-  `node_module_version: 149` while the Host is 137). Crash reports land in
-  `~/.config/@deepseek-ai/dsh-desktop/logs/crash-*-host.log`. Recovery only touches that native
-  module: move it aside
-  (`mv ~/.dsh/profiles/desktop/node_modules/cpu-features{,.disabled}`, and `ssh2` falls back to its
-  JavaScript implementation) or rebuild it for the local Node
-  (`npm rebuild cpu-features --build-from-source`); the plugin itself can stay enabled.
 - **GNOME shows no tray by default — install the extension yourself.** The tray uses freedesktop
   StatusNotifierItem, and GNOME ships no host for it, so you need `gnome-shell-extension-appindicator`
   (Ubuntu installs it by default; Debian needs its own `apt install` and Fedora its `dnf install`).
@@ -235,13 +205,6 @@ Both tables below are kept up to date as reports come in — please tell us how 
   (`libfuse2` on Ubuntu 22.04) — or bypass the mount with
   `APPIMAGE_EXTRACT_AND_RUN=1 ./deepseek-harness-*.AppImage` (extracts to /tmp, about 1.2G extra).
   The deb, rpm and Arch packages are unaffected.
-- **Electron is newer than the version upstream's lockfile pins (44.4.5).** Upstream's
-  `apps/desktop/package.json` says `^44.0.0`, which the caret already allows, but its lockfile pins
-  the resolution to 44.0.0 — and that version's **tray item registers on neither KDE nor GNOME**
-  (upstream regression [electron#53213](https://github.com/electron/electron/issues/53213), fixed by
-  [electron#53214](https://github.com/electron/electron/pull/53214) only on 2026-08-26, while 44.0.0
-  was released on 08-25). Patch `0014` resolves the lockfile to 44.4.5; the cost is that Linux
-  artifacts carry a slightly newer Chromium than upstream's desktop releases.
 - **No auto-update.** Upstream's mandatory-update policy channel only recognises
   `desktop-win` / `desktop-mac` client identities, and Linux artifacts carry no
   update channel, so the Linux build embeds no policy, never polls, and never

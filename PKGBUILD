@@ -12,15 +12,15 @@
 # 而不是 makepkg 那个起始目录变量名——写了字面量就会被报成 "File referenced in ..."，
 # 让 namcap 出假阳性。精确写法见 scripts/pkgbuild-dir.sh 的注释。
 #
-# 硬性前提：pnpm >= 11。仓库声明 packageManager: pnpm@11.7.0，pnpm 11 会自己切到该版本；
+# 硬性前提：pnpm >= 11。仓库声明 packageManager: pnpm@11.28.5，pnpm 11 会自己切到该版本；
 # pnpm 9 会报 ERR_PNPM_LOCKFILE_CONFIG_MISMATCH。
 
 pkgname=dsh-desktop-linux
-pkgver=0.2.0rc2
-pkgrel=2
-_tag='dsh-v0.2.0-rc.2'
-_commit='639ed015397290b3745d163aafe02ffee4aa3f84'
-# GitHub 源码包的顶层目录名 = <repo>-<tag>，tag 自带的 "v" 不剥（实测 dsh-v0.2.0-rc.1）
+pkgver=0.2.1rc2
+pkgrel=1
+_tag='dsh-v0.2.1-rc.2'
+_commit='687f282e8625c6b8d11ff58211a90524be2e4317'
+# GitHub 源码包的顶层目录名 = <repo>-<tag>，tag 自带的 "v" 不剥（实测 dsh-v0.2.1-alpha.2）
 _srcdirname="deepseek-harness-$_tag"
 
 pkgdesc='Official DeepSeek Harness desktop application (Electron shell around a bundled dsh runtime)'
@@ -66,29 +66,29 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/deepseek-ai/deepseek-harnes
         '0011-desktop-linux-package-metadata.patch'
         '0012-desktop-build-commit-release-archive.patch'
         '0013-desktop-linux-tray.patch'
-        '0014-electron-version-tray-fix.patch'
         '0015-desktop-linux-hidden-overlay-reveal.patch'
         '0016-desktop-linux-caption.patch'
+        '0017-desktop-host-resources-path.patch'
         # 补丁系列是文本 diff，装不下托盘 PNG —— GNU patch（makepkg 与 PKGBUILD 都用它）
         # 不支持 git 的二进制补丁。所以这张图作为普通本地 source 平铺过来，由 prepare() 放进源码树。
         'tray-linux.png')
-sha256sums=('c126f2f5dc56820e62d07e52eba6455cc20fffb379fc876626993452d86d4010'
-            '67a38b25575b2e4f3075eb0a516636db22795895eacf5ae9b6f3c13693a22f23'
-            '61fdd67082c398f05f4d879248aa7cde9d42edd53f395f017b7d741a68a40712'
-            '0d4fc2247d691f56c8c8fd6778d710e81da741efce4970d5742626b8c3dfd2ef'
-            '9a98b425de64adc0ee5cf1ab93d548ac7e37b81e461a6a2ebde6691390931619'
-            '528b0ba6334fa4d3003756ee921708753204fc265a40e406ecbf25456cce9fe5'
-            '91327c8ae2fea8980dbc17a5e8c97c2e27fd26fb4e8f7185ab6920dc7f6237d9'
-            'b78a49f2ca34679f78aad141f3d99ee74bec205b60d19b26fe9a1f0e69f88f2b'
-            '891c43fdb2991cd6a5ac2704d3fd09614e2ed3468639433ba8217b4311e1ea77'
-            '62fca9bb192ccc7114f58b14245701a5b765cb16e46ec730c59e73570b87dbfd'
-            '062567a5bcd5f4d8e63368a98927055358318f428c88fb851846d64fb859db8e'
+sha256sums=('dec9f36f9b25028ca8de2a7520e16029ad36e8328078fb33b85b1b9b338d5690'
+            'f201c9826fa2ab835b335785dc01063a3c173de29768e6ef253654d75dae1b42'
+            '2c551d85a71e27599d70a5f2dd36ce5536f28f113f2e9dd7145803abc4512356'
+            '67e1f95510ffb8f058365a6691561580e5c0874684d95bdbe968f9d8ab37bf6c'
+            '0d47d53b952a3e5e7a1e68e5db89199a2bc550f34867f30fef0867a96c79ace7'
+            'a70e694d28806f416e066e44571f03039ed433553648bcab582f95d4e788d03e'
+            '0d39845c9252adfe2d2702cb0274c2d505ee0114db7535e24eedcdc609fdb429'
+            '25e433508b7c4c1ef48ec60b26ef2c5dd3a5f6bfe479d71f474fe1d0721af768'
+            'f42d4a7506837e73c2b01ad912873654fe7797fa6373f1c5f3352911d11f6504'
+            '006f028f9970922bb998e76a90d5f0e0d6ce885e95eeaccc69da9762cd9d4efb'
+            'e1c9243ca4c39b22db972d4b848671e7f5e0e77485c578c7ced3dbea83c2867b'
             'a3ff4a524a4ebe28551797bd36dab7b7139516e668462f054e616e8a521e3e8f'
-            'd19ea9f506e2d0356a926ad2d20d67bab60511139fafb4e12f338d4d41739715'
-            '042117088d416a602985e595e768b2d921e98b64477eaa6a04383a958ae79ba3'
-            '816d08f621331b5120ba00b956bbf6ce7b9d157c0072eb74967647711da421fa'
-            '9496d3d4c4c9741a396c940bd0babd97e1d58111da31ba746cf0a6061825adba'
-            'ae5c792683b84301b32b193756b9df39a0a35fdc62d0ad320fe2e4df77b470e8'
+            '2a48cc7e75591f89e5e26606b4ce34b6e00db4891c4725ec171287af1f84fc50'
+            '8ba2af41630bae288f995d93eee8252c152ffa2087bf584f3479f7ef8578f695'
+            '88f5c12d7a6257c8f56f0b7cfe4171b47c90aae8818f36549ee9d5bfcf7a3867'
+            '58100d6a91dbb969b32602d2db2f24422c4dbc356a84e2c6150bb2c0667afca0'
+            'fc071d3ab47457e81ffb44b45460f92b8f4744ebe10b678fe5edd70923395061'
             'd1153ab7bb1c61ca7f6568b4525f6c3f3c7bf9a9e29af1697f3c02da7dee5322')
 
 prepare() {
@@ -119,22 +119,78 @@ prepare() {
 build() {
   cd "$_srcdirname"
 
+  # 上游三处脚本是无条件 `node $npm_execpath` 复起 pnpm（package-target.ts / flock-entry.ts /
+  # dev.ts），所以「它交给脚本的入口能不能被 node 执行」是硬前提。
+  #
+  # 光把 /usr/bin 钉在 PATH 最前**拦不住**：pnpm 的版本自管理在「运行版本 ≠ packageManager
+  # 声明版本」时会在 pnpm 内部把入口换成自己取的副本，pnpm 12 取的是 @pnpm/exe（ELF），
+  # node 加载它直接 SyntaxError —— 2026-10-15 的 CI arch job 就是这样挂的（容器里 pacman
+  # 装到 pnpm 12，自管理切到 store 里的 @pnpm/exe）。所以下面不只看版本，还要探一次入口，
+  # 探不过就退到隔离版（npm 装的 11.28.5，与声明版本一致、不会自管理，入口是 JS）。
+  # 探法与 scripts/select-pnpm.sh 同源 —— 那份给 build.sh / dev-desktop.sh 用，而 pkgbuild/
+  # 摊平目录里没有 scripts/，所以这里只能内联一份。
+  export PATH="/usr/bin:$PATH"
+
   # 隔离的 dsh 数据目录：构建期 Host 会往这里写东西，绝不能落到用户真实的 ~/.dsh。
   export DSH_HOME="$srcdir/dsh-home"
 
   # 上游平时从 git checkout 读这两个值（scripts/client-build-environment.ts 的
   # repositoryCommitHash、apps/desktop/scripts/desktop-build-commit.mjs 的
-  # readDesktopBuildCommit）。release 源码包里没有 .git，所以显式给出；补丁 0012 让
-  # 后者在不是 checkout 时接受环境变量。dirty=1 是事实：这个构建确实打了补丁。
+  # readDesktopBuildCommit）。release 源码包里没有 .git，所以显式给出；补丁 0012 让环境里
+  # 记下的这一对优先于 git —— 否则 makepkg 的 $srcdir 落在本仓库工作树里，探针会成功，
+  # 把本仓库的 HEAD 当成上游提交记进产物。dirty=1 是事实：这个构建确实打了补丁。
   export DSH_CLIENT_COMMIT_HASH="$_commit"
   export DSH_DESKTOP_BUILD_COMMIT="$_commit"
   export DSH_DESKTOP_BUILD_DIRTY=1
 
-  local pnpm_version
-  pnpm_version="$(pnpm --version)"
-  if (( ${pnpm_version%%.*} < 11 )); then
-    error "需要 pnpm 11 或更新版本，当前是 $pnpm_version（上游声明 packageManager: pnpm@11.7.0；pnpm 9 会报 ERR_PNPM_LOCKFILE_CONFIG_MISMATCH）"
-    return 1
+  # --- 挑一个合用的 pnpm：版本 11.x + 入口能被 node 执行（两条缺一不可）---
+
+  # 复刻上游那三处的调用方式：在钉了同一个 packageManager 的临时工程里跑一个脚本，让脚本
+  # 自己执行 `node $npm_execpath --version`（上游就是这么炸的）。
+  _dsh_pnpm_entry_runs_under_node() {
+    local probe rc=0
+    probe="$(mktemp -d)"
+    cat > "$probe/package.json" <<'JSON'
+{ "name": "pnpm-entry-probe", "private": true, "packageManager": "pnpm@11.28.5",
+  "scripts": { "probe": "node probe.cjs" } }
+JSON
+    cat > "$probe/probe.cjs" <<'JS'
+require('node:child_process').execFileSync(process.execPath, [process.env.npm_execpath, '--version'], { stdio: 'ignore' })
+JS
+    ( cd "$probe" && "$1" run --silent probe >/dev/null 2>&1 ) || rc=$?
+    rm -rf "$probe"
+    return "$rc"
+  }
+
+  _dsh_pnpm_usable() {
+    [[ -n "${1:-}" && -x "$1" ]] || return 1
+    [[ "$("$1" --version 2>/dev/null)" == 11.* ]] || return 1
+    _dsh_pnpm_entry_runs_under_node "$1"
+  }
+
+  local PNPM _pnpm_why="" _pnpm_version
+  PNPM="$(command -v pnpm || true)"
+  if [[ -z "$PNPM" ]]; then
+    _pnpm_why="系统里没有 pnpm"
+  else
+    _pnpm_version="$("$PNPM" --version 2>/dev/null || true)"
+    if [[ "$_pnpm_version" != 11.* ]]; then
+      _pnpm_why="版本不是 11.x（${_pnpm_version:-取不到版本}）—— 上游声明 packageManager: pnpm@11.28.5，pnpm 9 会报 ERR_PNPM_LOCKFILE_CONFIG_MISMATCH，pnpm 12 会自管理换入口"
+    elif ! _dsh_pnpm_entry_runs_under_node "$PNPM"; then
+      _pnpm_why="它交给脚本的入口不能被 node 执行（自管理换成了 @pnpm/exe 之类的二进制）"
+    fi
+  fi
+
+  if [[ -n "$_pnpm_why" ]]; then
+    local _pnpm_fallback="$HOME/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm"
+    if _dsh_pnpm_usable "$_pnpm_fallback"; then
+      PNPM="$_pnpm_fallback"
+      msg2 "系统的 pnpm 不合用（$_pnpm_why），改用隔离版：$PNPM ($("$PNPM" --version))"
+    else
+      error "系统的 pnpm 不合用：$_pnpm_why"
+      error "装一个隔离版后重试（需要 npm；Arch 上 npm 是独立包）：npm i --prefix ~/.local/share/dsh-pnpm-11 pnpm@11.28.5"
+      return 1
+    fi
   fi
 
   # Linux 发布设置：APP_ID 必填。MAINTAINER/HOMEPAGE 只在打 deb/rpm 时要（fpm 的 control
@@ -153,7 +209,7 @@ EOF
     printf 'DSH_DESKTOP_NPM_REGISTRY=%s\n' "$DSH_DESKTOP_NPM_REGISTRY" >> apps/desktop/.env.linux
   fi
 
-  pnpm install --frozen-lockfile
+  "$PNPM" install --frozen-lockfile
 
   # 可选：复用一份已有的打包流水线下载缓存。流水线自己的缓存是树内的
   # apps/desktop/.desktop-build/downloads/（键 = 资产内容的 sha256，Electron 那条是下载 URL 的
@@ -177,7 +233,7 @@ EOF
   node apps/desktop/node_modules/electron/install.js
 
   # 只要未打包目录：Arch 包直接把 linux-unpacked 装进 /opt，不需要再套一层 AppImage/deb/rpm。
-  pnpm --dir apps/desktop run package:linux:x64:dir
+  "$PNPM" --dir apps/desktop run package:linux:x64:dir
 }
 
 package() {

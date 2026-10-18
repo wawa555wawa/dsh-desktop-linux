@@ -6,7 +6,7 @@
 #   ./scripts/dev-desktop.sh --no-devtools # 不自动弹 DevTools
 #
 # 前提与坑：
-#   1. 必须用 pnpm 11.7.0 —— 仓库的 pnpm-workspace.yaml 用了 pnpm 10+ 的
+#   1. 必须用 pnpm 11.28.5 —— 仓库的 pnpm-workspace.yaml 用了 pnpm 10+ 的
 #      overrides/allowBuilds/minimumReleaseAgeExclude，pnpm 9 会报
 #      ERR_PNPM_LOCKFILE_CONFIG_MISMATCH。
 #   2. 干净树上必须先跑一次 `pnpm run build`：dev.ts 的 import 是静态提升的，
@@ -38,18 +38,9 @@ for arg in "$@"; do
 done
 
 # --- pnpm 11 ---
-PNPM="$(command -v pnpm || true)"
-if [[ -z "$PNPM" || "$("$PNPM" --version)" != 11.* ]]; then
-  FALLBACK="$HOME/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm"
-  if [[ -x "$FALLBACK" ]]; then
-    PNPM="$FALLBACK"
-    echo "==> 系统 pnpm 不是 11.x，改用隔离版：$PNPM ($("$PNPM" --version))"
-  else
-    echo "==> 需要 pnpm 11.x。安装隔离版：" >&2
-    echo "    npm i --prefix ~/.local/share/dsh-pnpm-11 pnpm@11.7.0" >&2
-    exit 1
-  fi
-fi
+# 与 build.sh 同一份预检（版本 + 入口能被 node 执行），理由见 scripts/select-pnpm.sh。
+# shellcheck source=scripts/select-pnpm.sh
+source "$ROOT/scripts/select-pnpm.sh"
 
 [[ -d "$UPSTREAM/apps/desktop" ]] || { echo "找不到 $UPSTREAM，先跑 scripts/fetch-upstream.sh" >&2; exit 1; }
 [[ -d "$UPSTREAM/node_modules" ]] || { echo "依赖没装，先 cd upstream && pnpm install --frozen-lockfile" >&2; exit 1; }
