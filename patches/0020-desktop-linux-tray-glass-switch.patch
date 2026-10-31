@@ -373,7 +373,7 @@ index cd8d2df..7b6aca1 100644
  
  describe('glassTint', () => {
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index f47e66d..f986ee3 100644
+index f47e66d..9ea3d18 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
 @@ -1397,6 +1397,16 @@ describe('desktop main startup', () => {
@@ -393,7 +393,7 @@ index f47e66d..f986ee3 100644
    it('hides the workspace before intentional Host shutdown can look like reconnection', async () => {
      const host = await readyWorkspace()
      const window = harness.windows[0]!
-@@ -1441,6 +1451,39 @@ describe('desktop main startup', () => {
+@@ -1441,6 +1451,41 @@ describe('desktop main startup', () => {
      expect(harness.trays[0]!.setContextMenu.mock.calls.length).toBe(relabels + 1)
    })
  
@@ -404,7 +404,9 @@ index f47e66d..f986ee3 100644
 +    const item = trayGlassMenuItem()
 +    expect(item.checked).toBe(false)
 +    item.click?.({ checked: true })
-+    await vi.waitFor(() => { expect(harness.dialog.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({ title: en.glassRestartTitle })) })
++    await vi.waitFor(() => {
++      expect(harness.dialog.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({ title: en.glassRestartTitle }))
++    })
 +    // Cancel (the default mock response) keeps the running window, writes no preference, and relabels
 +    // the menu so the checkbox falls back to the live mode.
 +    await vi.waitFor(() => { expect(harness.trays[0]!.setContextMenu.mock.calls.length).toBe(relabels + 1) })

@@ -27,6 +27,7 @@ fork 只在上面叠加了下面这些。
 |---|---|
 | 新补丁 `0019-desktop-linux-frameless-caption.patch` | 普通模式下把 Linux 主窗做成**无边框**：沿用 `0016` 的 caption 座位，自绘最小化 / 最大化 / 关闭走 `dsh-desktop:window-controls`，最大化状态由主进程回推；玻璃模式保持原生边框，两种模式由托盘开关切换 |
 | 新补丁 `0020-desktop-linux-tray-glass-switch.patch` | 托盘菜单里加「玻璃模式」勾选项：点击先弹确认框（重启 / 取消），确认后选择写进 Electron userData 的 `settings.json` 并重启应用；取消则保持当前模式。`DSH_DESKTOP_GLASS` 环境变量仍然可用，托盘写过选择后以托盘为准 |
+| 新补丁 `0021-desktop-linux-official-branding.patch` | Linux 的 unsigned 构建改用官方 client profile：应用左上角显示 DSH 官方标识，而不是上游 local profile 的「DSH 本地构建」徽标；macOS / Windows 的 unsigned 构建不受影响 |
 | 补丁 `0003` 增补 | deb/rpm 声明托盘菜单要的 `libdbusmenu-glib.so.4`（原项目只在 Arch 的 PKGBUILD `depends` 里声明）；接管 `afterInstall`，清掉旧版本升级留下的空 `node_modules` 目录，让升级自愈 |
 | `scripts/verify.sh` | 加产物断言：主进程的窗口控制通道与 preload 里的 caption 模块 |
 | 已知限制 | 补一条实测结论：第三方插件里为 Electron 编译的 NAN 原生模块会让 Host 段错误 |
@@ -36,7 +37,7 @@ fork 只在上面叠加了下面这些。
 
 与上游同步的方式不变：`scripts/fetch-upstream.sh` 拉 `PKGBUILD` 里 `_tag` 指的那个 commit，
 补丁相对它生成。**本 fork 新增的 `0019` / `0020` 已在本 fork 上完整验证**：补丁两条路干净、官方 typecheck 5 道门全过、
-上游桌面单测整套（2026 通过 / 63 跳过）零失败、`build.sh --all` 出齐三件套、`verify.sh --runtime`
+上游桌面单测整套（2027 通过 / 63 跳过）零失败、`build.sh --all` 出齐三件套、`verify.sh --runtime`
 活体矩阵全绿（玻璃模式的持久化读取路径另做了活体冒烟）。
 
 ## 项目产物

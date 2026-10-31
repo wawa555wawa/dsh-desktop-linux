@@ -135,7 +135,7 @@ declare -A PATCH_COVERAGE=(
   [0001]=verify [0002]=verify [0003]=verify [0004]=verify [0005]=verify
   [0006]=verify [0007]=tests  [0008]=verify [0009]=verify [0010]=verify
   [0011]=verify [0012]=verify [0013]=verify [0016]=verify [0017]=verify
-  [0018]=matrix [0019]=verify [0020]=verify
+  [0018]=matrix [0019]=verify [0020]=verify [0021]=verify
 )
 
 echo "== 0. 补丁覆盖登记（防过期）=="
@@ -487,6 +487,16 @@ CDP
         ok "0016：页内 caption 菜单宿主已挂载（[data-windows-menu]）"
       else
         bad "0016：页内 caption 菜单宿主缺失（原生菜单栏可能没被隐藏）"
+      fi
+
+      # 0021：Linux 的 unsigned 构建也走 official client profile，所以左上角应是官方品牌标识，
+      # 而不是上游 local profile 的「DSH 本地构建 / DSH Local Build」徽标（两者文本都可能本地化）。
+      local_badge="$(cdp_eval 'document.body.innerText.includes("本地构建") || document.body.innerText.includes("Local Build")')"
+      brand_mark="$(cdp_eval 'Boolean(document.querySelector("[data-slot=\"sidebar.brand.mark\"] svg"))')"
+      if [[ "$local_badge" == false && "$brand_mark" == true ]]; then
+        ok "0021：左上角是官方品牌标识（没有本地构建徽标）"
+      else
+        bad "0021：品牌不对（本地构建徽标=${local_badge:-空}，官方 mark=${brand_mark:-空}）"
       fi
 
       # Host 必须跑在 primary-runtime 自带的真 Node 上（Electron 的 node 模式下 sharp 会段错误）。

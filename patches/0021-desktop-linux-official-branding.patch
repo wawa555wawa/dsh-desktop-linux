@@ -1,0 +1,72 @@
+diff --git a/apps/desktop/scripts/pack-local-packages.ts b/apps/desktop/scripts/pack-local-packages.ts
+index 7913647..7762be7 100644
+--- a/apps/desktop/scripts/pack-local-packages.ts
++++ b/apps/desktop/scripts/pack-local-packages.ts
+@@ -1,4 +1,4 @@
+-/** Stage local-branded DSH packages for unsigned Desktop builds without a publication record. */
++/** Stage DSH packages for unsigned Desktop builds from the client artifacts their target profile built. */
+ 
+ import { resolve } from 'node:path'
+ import { parseArgs } from 'node:util'
+@@ -18,7 +18,10 @@ async function main(): Promise<void> {
+   if (values.out === undefined) throw new Error('desktop local pack: --out must name the package staging directory')
+   const concurrency = parsePackConcurrency(values.concurrency)
+   const root = process.cwd()
+-  const environment = resolveClientBuildEnvironment(repositoryClientBuildEnvironment(root), 'local')
++  // Must match package-target.ts: the Linux port builds unsigned artifacts with the official brand
++  // profile, while other unsigned targets keep the local profile.
++  const profile = process.env.DSH_DESKTOP_TARGET_PLATFORM === 'linux' ? 'official' : 'local'
++  const environment = resolveClientBuildEnvironment(repositoryClientBuildEnvironment(root), profile)
+   readClientBuildRecord(root, environment)
+   const destination = resolve(root, values.out)
+   const packed = await packFamilyMembers(root, releaseFamily('dsh'), destination, concurrency)
+diff --git a/apps/desktop/scripts/package-target.ts b/apps/desktop/scripts/package-target.ts
+index 20da969..5f37bb4 100644
+--- a/apps/desktop/scripts/package-target.ts
++++ b/apps/desktop/scripts/package-target.ts
+@@ -491,7 +491,11 @@ export async function packageTarget(
+         { cwd: APP_ROOT, env: electronBuilderEnv, timeoutMs: 60_000 })
+     })
+   }
+-  await execute(invocation.unsigned ? ['run', 'build', '--profile', 'local'] : ['run', 'build:official'], buildEnv, REPOSITORY_ROOT)
++  // The Linux port ships the official application as an unsigned build, so its client artifacts must
++  // carry the official brand: the local profile labels the sidebar "DSH Local Build" instead of the
++  // official mark. Signed builds keep `build:official`; unsigned macOS/Windows stay development-like.
++  const unsignedProfile = target.platform === 'linux' ? 'official' : 'local'
++  await execute(invocation.unsigned ? ['run', 'build', '--profile', unsignedProfile] : ['run', 'build:official'], buildEnv, REPOSITORY_ROOT)
+   let preparationFailure: { error: unknown } | undefined
+   const executePreparation = async (args: readonly string[], env: NodeJS.ProcessEnv, cwd?: string): Promise<void> => {
+     if (preparationFailure !== undefined) throw preparationFailure.error
+@@ -504,7 +508,9 @@ export async function packageTarget(
+         ? ['exec', 'tsx', 'apps/desktop/scripts/pack-local-packages.ts']
+         : ['run', 'release:pack', '--family', 'dsh']),
+       '--out', buildPaths.packedDsh, ...packArguments,
+-    ], buildEnv, REPOSITORY_ROOT)
++    // The packer derives its expected client build record from the target platform; only unsigned
++    // Linux needs that hint, because only there does it differ from the local packaging profile.
++    ], invocation.unsigned && target.platform === 'linux' ? targetEnv : buildEnv, REPOSITORY_ROOT)
+     await executePreparation([
+       '--dir',
+       'apps/desktop-host',
+diff --git a/apps/desktop/tests/package-target-stages.spec.ts b/apps/desktop/tests/package-target-stages.spec.ts
+index 37bd383..d4099ff 100644
+--- a/apps/desktop/tests/package-target-stages.spec.ts
++++ b/apps/desktop/tests/package-target-stages.spec.ts
+@@ -230,6 +230,17 @@ it.each(['mac-arm64', 'mac-x64', 'win-x64'] as const)('selects branding from the
+   }
+ })
+ 
++it('builds the linux port with the official brand profile even when unsigned', async () => {
++  const { run, stages } = supervisor()
++  await packageTarget(parseDesktopPackageInvocation(['linux-x64', '--unsigned'], 'linux', 'x64'), environment, run)
++  expect(stages.find(stage => stage.startsWith('run build'))).toBe('run build --profile official')
++  expect(stages.some(stage => stage.startsWith('exec tsx apps/desktop/scripts/pack-local-packages.ts'))).toBe(true)
++  expect(stages.some(stage => stage.startsWith('run release:pack --family dsh'))).toBe(false)
++  // The packer derives its expected client build record from the same target environment.
++  const pack = run.run.mock.calls.find(call => call[0].startsWith('exec tsx apps/desktop/scripts/pack-local-packages.ts'))
++  expect(pack?.[3].env.DSH_DESKTOP_TARGET_PLATFORM).toBe('linux')
++})
++
+ it.each([
+   ['mac-arm64', 'run build --profile local'],
+   ['win-x64', 'run build --profile local'],

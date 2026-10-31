@@ -31,6 +31,7 @@ only `0003` among patches `0001`–`0018` carries additions from this fork (see 
 |---|---|
 | New patch `0019-desktop-linux-frameless-caption.patch` | In normal mode the Linux main window becomes **frameless**: it reuses the caption seat `0016` already wires up, draws its own minimize / maximize / close through `dsh-desktop:window-controls`, and the main process publishes the maximized state. Glass mode keeps the native frame; the tray switch picks between the two |
 | New patch `0020-desktop-linux-tray-glass-switch.patch` | A "Glass mode" checkbox in the tray menu: clicking asks for confirmation (Restart / Cancel), then writes the choice to `settings.json` under Electron's userData and restarts; cancelling keeps the current mode. `DSH_DESKTOP_GLASS` still works; once the tray has written a choice, the tray wins |
+| New patch `0021-desktop-linux-official-branding.patch` | Linux unsigned builds switch to the official client profile, so the app shows the official DSH brand in the top-left instead of the upstream local profile's "DSH Local Build" badge; unsigned macOS / Windows builds are unaffected |
 | Patch `0003` extended | The deb and rpm packages declare `libdbusmenu-glib.so.4`, which the tray menu needs (the original project only declares it in the Arch PKGBUILD `depends`); `afterInstall` is taken over to prune empty `node_modules` directories left by a previous version, so upgrades heal themselves |
 | `scripts/verify.sh` | One artifact assertion: the window control channel in the main process and the caption module in the preload |
 | Known limitations | One measured conclusion: a third-party plugin carrying a NAN native module built for Electron segfaults the Host |
@@ -41,7 +42,7 @@ only `0003` among patches `0001`–`0018` carries additions from this fork (see 
 Tracking upstream works exactly as in the original project: `scripts/fetch-upstream.sh` fetches the
 commit `PKGBUILD`'s `_tag` names and the patches are generated against it. **The two patches this fork adds are
 verified inside this fork**: both patch paths are clean, the 5 official typecheck gates pass, the
-full upstream desktop unit suite passes (2026 passed / 63 skipped), `build.sh --all` produces all
+full upstream desktop unit suite passes (2027 passed / 63 skipped), `build.sh --all` produces all
 three artifacts, and the `verify.sh --runtime` live matrix is green (the persisted glass-mode read
 path got a live smoke test as well).
 

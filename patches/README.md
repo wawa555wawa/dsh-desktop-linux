@@ -2,15 +2,16 @@
 
 按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `f3803c96`（tag `dsh-v0.2.2-alpha.2`）。
 
-`0019`（无边框自绘标题栏）与 `0020`（托盘里的玻璃模式开关）是本 fork 在 ffyfox 原项目的补丁系列之上
-新增的两条；其余 16 条（含 `0018` 玻璃模式）与该项目的版本一致。
+`0019`（无边框自绘标题栏）、`0020`（托盘里的玻璃模式开关）与 `0021`（Linux 的 unsigned 产物使用官方
+品牌）是本 fork 在 ffyfox 原项目的补丁系列之上新增的三条；其余 16 条（含 `0018` 玻璃模式）与该项目的
+版本一致，`0003` 另带本 fork 的增补。
 
 组织约定：**一条改动只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，改动互不重复、
 按编号应用（顺序依赖见下）。补丁由 `git diff -- <files>` 从开发工作树生成；**一个文件可以被
 多个补丁触及**，此时必须按「基线 + 只有这一个补丁」的隔离树取 diff，否则会把另一个补丁的
 hunk 一起带进来。
 
-**`0017`、`0018`、`0019`、`0020` 是这条约定的已知例外。**
+**`0017`、`0018`、`0019`、`0020`、`0021` 是这条约定的已知例外。**
 
 `0017` 的 5 个文件（`src/node-environment.ts`、`src/main.ts`、`tests/host-process.spec.ts`、
 `tests/node-environment.spec.ts`、`desktop-host/src/index.ts`）全部也属于 `0008`，而且它的 diff 上下文含
@@ -34,6 +35,10 @@ hunk 一起带进来。
 全部落在前置补丁上：`src/glass-mode.ts` 由 `0018` 新建，`src/main.ts` / `src/tray.ts` / `src/locale.ts` /
 `src/settings.ts` 被多个前置补丁或基线本身触及，所以它排在系列最后生成；`tests/welcome-startup.spec.ts`
 的 `settings.ts` mock 也要跟着补 `appearance` 字段，否则那条启动用例会挂在 `appearance.glass` 上。
+
+`0021` 比上面几条轻：它只碰 `apps/desktop/scripts/package-target.ts`（`0002` 已改过这个文件）、
+`apps/desktop/scripts/pack-local-packages.ts` 与 `tests/package-target-stages.spec.ts`，所以名义上排在
+`0002` 之后就成立；按系列约定仍排在最后生成，避免和后续本地补丁抢同一文件。
 
 已验证（0.2.2-alpha.2）：这一轮是完整同步 —— 上游从 rc.4 到这个 tag 走了 2161 个提交、6944 个改动文件
 （剔除 `.agents/notes` 之后：3454 新增 / 3430 修改 / 60 删除）。14 个补丁触及的文件被改过而重生；
@@ -65,26 +70,28 @@ deb 291 689 160 B（`d0f96ab4…`）、rpm 241 742 603 B（`e330e7c3…`），�
 上游 `f3803c96…`（`dshBuildDirty: true`，不是本仓库的提交），正是 0004 的 Linux 闸门、0008 的运行时选择与
 0012 的「环境变量优先」在起作用。
 
-本 fork 加上 `0019` / `0020` 之后又单独验了一轮（2026-10-31）：18 个补丁（`0003` 也带上本 fork 的
-`libdbusmenu` / `afterInstall` 增补）按序打在同一个 `dsh-v0.2.2-alpha.2` release 源码包
+本 fork 加上 `0019` / `0020` / `0021` 之后又单独验了一轮（2026-10-31）：19 个补丁（`0003` 也带上本 fork
+的 `libdbusmenu` / `afterInstall` 增补）按序打在同一个 `dsh-v0.2.2-alpha.2` release 源码包
 （`dsh-v0.2.2-alpha.2.tar.gz`，sha256 `85f1af41…`）上，`git apply`（`apply-patches.sh`）与 GNU
-`patch -Np1`（makepkg 的 `prepare()`）两条路都干净通过，两条路打出来的 79 个改动文件 `diff -r` 零差异；
-`source` 的 20 条校验和用 `sha256sum` 逐条复核（本机没有 makepkg，`makepkg --verifysource` 留给 CI）。
+`patch -Np1`（makepkg 的 `prepare()`）两条路都干净通过，两条路打出来的 81 个改动文件 `diff -r` 零差异；
+`source` 的 21 条校验和用 `sha256sum` 逐条复核（本机没有 makepkg，`makepkg --verifysource` 留给 CI）。
 `pnpm install --frozen-lockfile` 通过；`build.ts --scope typecheck` 的 5 道门（Host Typert / host compiler /
 client compiler / host aggregate check / client aggregate check）全过；上游桌面单测整套（175 个文件：
-170 通过 / 5 跳过；2089 个用例：2026 通过 / 63 跳过）**零失败** —— `macos-notarization-proxy.spec.ts` 那
+170 通过 / 5 跳过；2090 个用例：2027 通过 / 63 跳过）**零失败** —— `macos-notarization-proxy.spec.ts` 那
 15 条要在 `pnpm run build:native-system` + `native/system` 的 `build:ts` 之后才跑得起来，直接拿
 `node_modules/.bin/vitest` 跑会以「flock addon is not built」失败（不是补丁问题）。
 
 整包构建这一轮也在本机（Fedora 44 / x86_64）跑了：`build.sh --dir` 的 payload 冒烟全过（koffi / sharp /
 html / pty / pnpm / grep / glob 全在场、CLI 离线装插件与卸载、`dsh web:` 起得来、Office 三种格式转 PDF），
-随后 `build.sh --all` 出齐三件套并冒烟通过 —— AppImage 361 890 760 B（sha256 `70bd4eb1…`）、
-deb 291 782 680 B（`3c9af9e2…`）、rpm 241 980 797 B（`f39c62b6…`）。`verify.sh` 静态 **23 通过 / 0 失败 /
-2 跳过**（含 0019 / 0020 的 bundle 断言），`verify.sh --runtime` **37 通过 / 0 失败 / 1 跳过**（活体：自绘
-caption、Host 跑在 primary-runtime 真 Node 上、2 个渲染进程都在独立 user namespace + seccomp、托盘注册）。
-另外手写一份 `appearance.glass: true` 的 `settings.json` 起了一次实例，CDP 读到 `data-dsh-glass` 在场、
-`data-windows-titlebar` 缺席、侧栏渐变材质生效 —— 玻璃模式这条读取路径也过了。**Arch 包（`makepkg`）这一轮
-没跑**（本机没有 makepkg），留给 CI。
+随后 `build.sh --all` 出齐三件套并冒烟通过 —— AppImage 361 890 918 B（sha256 `b9c3f565…`）、
+deb 291 782 620 B（`cdebccb9…`）、rpm 241 962 257 B（`ae8acd49…`）。`verify.sh` 静态 **23 通过 / 0 失败 /
+2 跳过**（含 0019 / 0020 的 bundle 断言），`verify.sh --runtime` **38 通过 / 0 失败 / 1 跳过**（活体：自绘
+caption、Host 跑在 primary-runtime 真 Node 上、2 个渲染进程都在独立 user namespace + seccomp、托盘注册，
+以及 0021 的品牌断言 —— 左上角是官方标识、没有「DSH 本地构建」徽标）。另外手写一份
+`appearance.glass: true` 的 `settings.json` 起了一次实例，CDP 读到 `data-dsh-glass` 在场、
+`data-windows-titlebar` 缺席、侧栏渐变材质生效 —— 玻璃模式这条读取路径也过了；同样用 CDP 读到
+`document.title` 是 `DeepSeek Harness`、侧栏 `sidebar.brand.mark` / `sidebar.brand.name` 两个官方 slot
+都渲染了 SVG —— 0021 的落点也过了。**Arch 包（`makepkg`）这一轮没跑**（本机没有 makepkg），留给 CI。
 
 构建机注意：本机是 Fedora 44，electron-builder 自带的 fpm（ruby）需要 `libcrypt.so.1`，系统只有
 `libcrypt.so.2`；用仓库里已有的 `.electron-cache/libxcrypt/usr/lib64` 补 `LD_LIBRARY_PATH` 后才能出
@@ -380,6 +387,18 @@ Wayland）读数：展开 grid `280px …`、条 52px、切换钮 `(240,11)`（�
 `updates.allowTestAuthPopupWindow` 同文档；首次启动创建默认文档时**不写** `appearance`，所以
 `DSH_DESKTOP_GLASS=1` 在托盘还没写过选择之前仍然有效。托盘里只有这一项会重启应用；会话与 Host 走
 既有退出流程，任务不丢。浓度仍只由 `DSH_DESKTOP_GLASS_TINT` 控制（`0018`），本补丁不改它。
+
+## Linux 的 unsigned 产物显示官方品牌（0021）
+
+| 补丁 | 覆盖文件 | 内容 |
+|---|---|---|
+| `0021-desktop-linux-official-branding.patch` | `apps/desktop/scripts/package-target.ts`、`apps/desktop/scripts/pack-local-packages.ts`、`apps/desktop/tests/package-target-stages.spec.ts` | 上游把 unsigned 打包一律当「本地构建」：`package-target.ts` 对 `--unsigned` 跑 `build --profile local`，client 端的 official brand slot 因此不注册，左侧栏左上角显示「DSH 本地构建 / DSH Local Build + 版本-commit」。本 fork 产出的是官方 Electron 应用的 Linux 重打包，品牌应是官方，所以 **Linux target 的 unsigned 构建改跑 `build --profile official`**；`pack-local-packages.ts` 也按 `DSH_DESKTOP_TARGET_PLATFORM=linux` 用 official profile 校验 client build record（否则 `readClientBuildRecord` 会因 record 不匹配拒绝打包）；`package-target.ts` 里 pack-local 那一步同时把 `targetEnv` 传下去，让 packer 读得到目标平台。macOS / Windows 的 unsigned 构建**不变**，仍是 local profile（`build --profile local` 那条分支原样保留）；`tests/package-target-stages.spec.ts` 补一条「linux unsigned 用 official profile」的用例 |
+
+这条只改打包脚本与测试，不碰客户端源码：官方标识本来就由上游的 `ui-brand-official` 在
+`DSH_CLIENT_BUILD_PROFILE === 'official'` 时注册到 `sidebar.brand.mark` / `sidebar.brand.name` 两个 slot。
+**注意左侧栏底部的「更多」入口不属于本 fork 的修改** —— 它来自上游的
+`packages/client/ui-entry-customization`（`more` 菜单、插件浏览 / 创建草稿），在 0.2.2-alpha.2 的基线树里
+就有，同步时不要删。
 
 ## Arch 包与 deb/rpm 构建树的差异（无害）
 
