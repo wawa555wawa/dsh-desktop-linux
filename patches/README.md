@@ -30,7 +30,7 @@ hunk 一起带进来。
 
 `0019` 同理：5 个文件里 `src/main.ts` 同时属于 `0008` / `0016` / `0018`（`frame: false` 落进
 `createWindow()`，紧挨着玻璃模式的 `transparent` 分支），`src/preload-app.ts` 与
-`tests/main-startup.spec.ts` 也属于 `0016` —— 所以它必须排在 `0018` 之后生成。`0020` 的 9 个文件
+`tests/main-startup.spec.ts` 也属于 `0016` —— 所以它必须排在 `0018` 之后生成。`0020` 的 10 个文件
 全部落在前置补丁上：`src/glass-mode.ts` 由 `0018` 新建，`src/main.ts` / `src/tray.ts` / `src/locale.ts` /
 `src/settings.ts` 被多个前置补丁或基线本身触及，所以它排在系列最后生成；`tests/welcome-startup.spec.ts`
 的 `settings.ts` mock 也要跟着补 `appearance` 字段，否则那条启动用例会挂在 `appearance.glass` 上。
@@ -72,10 +72,23 @@ deb 291 689 160 B（`d0f96ab4…`）、rpm 241 742 603 B（`e330e7c3…`），�
 `source` 的 20 条校验和用 `sha256sum` 逐条复核（本机没有 makepkg，`makepkg --verifysource` 留给 CI）。
 `pnpm install --frozen-lockfile` 通过；`build.ts --scope typecheck` 的 5 道门（Host Typert / host compiler /
 client compiler / host aggregate check / client aggregate check）全过；上游桌面单测整套（175 个文件：
-170 通过 / 5 跳过；2087 个用例：2024 通过 / 63 跳过）**零失败** —— `macos-notarization-proxy.spec.ts` 那
+170 通过 / 5 跳过；2089 个用例：2026 通过 / 63 跳过）**零失败** —— `macos-notarization-proxy.spec.ts` 那
 15 条要在 `pnpm run build:native-system` + `native/system` 的 `build:ts` 之后才跑得起来，直接拿
-`node_modules/.bin/vitest` 跑会以「flock addon is not built」失败（不是补丁问题）。整包构建
-（`build.sh --all` / `makepkg`）与 `verify.sh` 的活体矩阵这一轮**没有重跑**，留给 CI 与发版前那一轮。
+`node_modules/.bin/vitest` 跑会以「flock addon is not built」失败（不是补丁问题）。
+
+整包构建这一轮也在本机（Fedora 44 / x86_64）跑了：`build.sh --dir` 的 payload 冒烟全过（koffi / sharp /
+html / pty / pnpm / grep / glob 全在场、CLI 离线装插件与卸载、`dsh web:` 起得来、Office 三种格式转 PDF），
+随后 `build.sh --all` 出齐三件套并冒烟通过 —— AppImage 361 890 760 B（sha256 `70bd4eb1…`）、
+deb 291 782 680 B（`3c9af9e2…`）、rpm 241 980 797 B（`f39c62b6…`）。`verify.sh` 静态 **23 通过 / 0 失败 /
+2 跳过**（含 0019 / 0020 的 bundle 断言），`verify.sh --runtime` **37 通过 / 0 失败 / 1 跳过**（活体：自绘
+caption、Host 跑在 primary-runtime 真 Node 上、2 个渲染进程都在独立 user namespace + seccomp、托盘注册）。
+另外手写一份 `appearance.glass: true` 的 `settings.json` 起了一次实例，CDP 读到 `data-dsh-glass` 在场、
+`data-windows-titlebar` 缺席、侧栏渐变材质生效 —— 玻璃模式这条读取路径也过了。**Arch 包（`makepkg`）这一轮
+没跑**（本机没有 makepkg），留给 CI。
+
+构建机注意：本机是 Fedora 44，electron-builder 自带的 fpm（ruby）需要 `libcrypt.so.1`，系统只有
+`libcrypt.so.2`；用仓库里已有的 `.electron-cache/libxcrypt/usr/lib64` 补 `LD_LIBRARY_PATH` 后才能出
+deb / rpm。
 
 **编号 `0014` 已作废，空号不复用。** 它当年把 lockfile 里 electron 的解析从 44.0.0 提到 44.4.5
 （那个版本的 Linux 托盘在 KDE 与 GNOME 下都注册不上）；0.2.1-alpha.2 的 lockfile 自己解析到 44.7.0，
@@ -361,7 +374,7 @@ Wayland）读数：展开 grid `280px …`、条 52px、切换钮 `(240,11)`（�
 
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
-| `0020-desktop-linux-tray-glass-switch.patch` | `src/settings.ts`、`src/glass-mode.ts`、`src/tray.ts`、`src/locale.ts`、`src/main.ts`、`tests/{settings,tray,glass-mode,welcome-startup}.spec.ts` | Linux 托盘菜单多一个 `type: 'checkbox'` 的「玻璃模式 / Glass mode」，勾选状态来自正在运行的 shell。点击后把选择写进 `settings.json` 的 `appearance.glass`（保留文档里其他字段；解析不了的文件不覆盖，只 warn 并恢复勾选），然后 `app.relaunch()`：`transparent` 与 `frame` 都是 `BrowserWindow` 创建期选项，进程内改不了，这也与上游对 `settings.json` 的约定一致（「changes require a restart」）。`glass-mode.ts` 的进程内偏好由 `main()` 在读完设置后注入，优先级高于 `DSH_DESKTOP_GLASS` —— 托盘点过之后环境变量不会再把它拧回去；没点过（文档里没有 `appearance.glass`）时仍由环境变量决定，老用法不变。Windows 托盘不传这组回调，菜单仍是「打开 / 退出」两项 |
+| `0020-desktop-linux-tray-glass-switch.patch` | `src/settings.ts`、`src/glass-mode.ts`、`src/tray.ts`、`src/locale.ts`、`src/main.ts`、`tests/{settings,tray,glass-mode,main-startup,welcome-startup}.spec.ts` | Linux 托盘菜单多一个 `type: 'checkbox'` 的「玻璃模式 / Glass mode」，勾选状态来自正在运行的 shell。点击后**先弹确认框**（`ordinaryMessageBox`，按钮「重启」/「取消」）：取消就只重建托盘菜单、把勾选恢复成当前模式，文档与运行中的窗口都不动；确认才把选择写进 `settings.json` 的 `appearance.glass`（保留文档里其他字段；解析不了的文件不覆盖，只 warn 并恢复勾选），然后 `app.relaunch()`：`transparent` 与 `frame` 都是 `BrowserWindow` 创建期选项，进程内改不了，这也与上游对 `settings.json` 的约定一致（「changes require a restart」）。`glass-mode.ts` 的进程内偏好由 `main()` 在读完设置后注入，优先级高于 `DSH_DESKTOP_GLASS` —— 托盘点过之后环境变量不会再把它拧回去；没点过（文档里没有 `appearance.glass`）时仍由环境变量决定，老用法不变。Windows 托盘不传这组回调，菜单仍是「打开 / 退出」两项 |
 
 `settings.json` 在 `<userData>/desktop/` 下（Electron 的 userData，不是 `DSH_HOME`），与既有的
 `updates.allowTestAuthPopupWindow` 同文档；首次启动创建默认文档时**不写** `appearance`，所以

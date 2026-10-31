@@ -34,75 +34,91 @@ index 97512e7..aee501d 100644
  
  /**
 diff --git a/apps/desktop/src/locale.ts b/apps/desktop/src/locale.ts
-index 74a1f19..1924c22 100644
+index 74a1f19..e699899 100644
 --- a/apps/desktop/src/locale.ts
 +++ b/apps/desktop/src/locale.ts
-@@ -39,6 +39,7 @@ export const en = {
+@@ -39,6 +39,9 @@ export const en = {
    showAllApplications: 'Show All',
    quitApplication: 'Quit DeepSeek Harness',
    openApplication: 'Open DeepSeek Harness',
 +  glassMode: 'Glass mode',
++  glassRestartTitle: 'Switch glass mode',
++  glassRestartBody: 'Changing glass mode restarts the application. The next window starts transparent or with the native frame.',
    quit: 'Quit',
    cancel: 'Cancel',
    quitTitle: 'Quit DeepSeek Harness?',
-@@ -218,6 +219,7 @@ export const zh = {
+@@ -218,6 +221,9 @@ export const zh = {
    showAllApplications: '显示全部',
    quitApplication: '退出 DeepSeek Harness',
    openApplication: '打开 DeepSeek Harness',
 +  glassMode: '玻璃模式',
++  glassRestartTitle: '切换玻璃模式',
++  glassRestartBody: '切换玻璃模式需要重启应用；重启后的窗口才会切换透明侧栏 / 原生边框。',
    quit: '退出',
    cancel: '取消',
    quitTitle: '退出 DeepSeek Harness？',
-@@ -395,6 +397,7 @@ export const ja = {
+@@ -395,6 +401,9 @@ export const ja = {
    showAllApplications: 'すべて表示',
    quitApplication: 'DeepSeek Harness を終了',
    openApplication: 'DeepSeek Harness を開く',
 +  glassMode: 'グラスモード',
++  glassRestartTitle: 'グラスモードの切り替え',
++  glassRestartBody: 'グラスモードの変更にはアプリの再起動が必要です。再起動後のウィンドウが透明になります。',
    quit: '終了',
    cancel: 'キャンセル',
    quitTitle: 'DeepSeek Harness を終了しますか？',
-@@ -572,6 +575,7 @@ export const es = {
+@@ -572,6 +581,9 @@ export const es = {
    showAllApplications: 'Mostrar todo',
    quitApplication: 'Salir de DeepSeek Harness',
    openApplication: 'Abrir DeepSeek Harness',
 +  glassMode: 'Modo cristal',
++  glassRestartTitle: 'Cambiar el modo cristal',
++  glassRestartBody: 'Cambiar el modo cristal requiere reiniciar la aplicación; la próxima ventana será translúcida.',
    quit: 'Salir',
    cancel: 'Cancelar',
    quitTitle: '¿Salir de DeepSeek Harness?',
-@@ -749,6 +753,7 @@ export const fr = {
+@@ -749,6 +761,9 @@ export const fr = {
    showAllApplications: 'Afficher tout',
    quitApplication: 'Quitter DeepSeek Harness',
    openApplication: 'Ouvrir DeepSeek Harness',
 +  glassMode: 'Mode verre',
++  glassRestartTitle: 'Changer le mode verre',
++  glassRestartBody: 'Changer le mode verre redémarre l’application ; la prochaine fenêtre sera translucide.',
    quit: 'Quitter',
    cancel: 'Annuler',
    quitTitle: 'Quitter DeepSeek Harness ?',
-@@ -926,6 +931,7 @@ export const de = {
+@@ -926,6 +941,9 @@ export const de = {
    showAllApplications: 'Alle einblenden',
    quitApplication: 'DeepSeek Harness beenden',
    openApplication: 'DeepSeek Harness öffnen',
 +  glassMode: 'Glasmodus',
++  glassRestartTitle: 'Glasmodus wechseln',
++  glassRestartBody: 'Der Wechsel des Glasmodus startet die Anwendung neu; das nächste Fenster startet transparent.',
    quit: 'Beenden',
    cancel: 'Abbrechen',
    quitTitle: 'DeepSeek Harness beenden?',
-@@ -1103,6 +1109,7 @@ export const ru = {
+@@ -1103,6 +1121,9 @@ export const ru = {
    showAllApplications: 'Показать все',
    quitApplication: 'Выйти из DeepSeek Harness',
    openApplication: 'Открыть DeepSeek Harness',
 +  glassMode: 'Стеклянный режим',
++  glassRestartTitle: 'Переключить стеклянный режим',
++  glassRestartBody: 'Смена стеклянного режима требует перезапуска приложения; следующее окно откроется прозрачным.',
    quit: 'Выйти',
    cancel: 'Отмена',
    quitTitle: 'Выйти из DeepSeek Harness?',
-@@ -1280,6 +1287,7 @@ export const pt = {
+@@ -1280,6 +1301,9 @@ export const pt = {
    showAllApplications: 'Mostrar tudo',
    quitApplication: 'Sair de DeepSeek Harness',
    openApplication: 'Abra DeepSeek Harness',
 +  glassMode: 'Modo vidro',
++  glassRestartTitle: 'Alternar modo vidro',
++  glassRestartBody: 'Alternar o modo vidro reinicia o aplicativo; a próxima janela abrirá translúcida.',
    quit: 'Sair',
    cancel: 'Cancelar',
    quitTitle: 'Sair de DeepSeek Harness?',
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index a306a64..c8c28d5 100644
+index a306a64..eb960db 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
 @@ -32,7 +32,7 @@ import { installMicrophonePermissions } from './microphone-permissions.ts'
@@ -132,7 +148,7 @@ index a306a64..c8c28d5 100644
    void pruneCrashReports(app.getPath('logs'))
    const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
    const updateJournal = journalDirectory === undefined ? undefined : new DesktopUpdateJournal(journalDirectory, app.getVersion())
-@@ -1134,7 +1136,26 @@ async function main(): Promise<void> {
+@@ -1134,7 +1136,45 @@ async function main(): Promise<void> {
      // menu on a left click instead of forwarding one.
      try {
        tray = new DesktopTray({ iconPath: trayIconPath, locale: currentDesktopLocale,
@@ -143,17 +159,36 @@ index a306a64..c8c28d5 100644
 +          glass: {
 +            enabled: () => desktopGlass(),
 +            set: (enabled: boolean) => {
-+              try {
-+                writeDesktopGlassPreference(app.getPath('userData'), enabled)
-+              } catch (error) {
-+                // The running window keeps its mode; put the checkbox back in step with it.
-+                console.warn('desktop settings: glass-mode preference was not saved', error)
-+                tray?.relabel()
-+                return
-+              }
-+              // Transparency and the frame are BrowserWindow creation options, so the shell relaunches.
-+              app.relaunch()
-+              quitWithoutConfirmation()
++              void (async () => {
++                const messages = currentDesktopLocale().messages
++                // The window only gets its new mode on the next run, so the switch announces the restart
++                // first; cancelling must leave both the document and the running window untouched.
++                const answer = await ordinaryMessageBox({
++                  type: 'question',
++                  title: messages.glassRestartTitle,
++                  message: messages.glassRestartTitle,
++                  detail: messages.glassRestartBody,
++                  buttons: [messages.restartApplication, messages.cancel],
++                  defaultId: 0,
++                  cancelId: 1,
++                  noLink: true,
++                })
++                if (answer.response !== 0) {
++                  // The running window keeps its mode; put the checkbox back in step with it.
++                  tray?.relabel()
++                  return
++                }
++                try {
++                  writeDesktopGlassPreference(app.getPath('userData'), enabled)
++                } catch (error) {
++                  console.warn('desktop settings: glass-mode preference was not saved', error)
++                  tray?.relabel()
++                  return
++                }
++                // Transparency and the frame are BrowserWindow creation options, so the shell relaunches.
++                app.relaunch()
++                quitWithoutConfirmation()
++              })()
 +            },
 +          },
 +        } : {}) })
@@ -337,6 +372,67 @@ index cd8d2df..7b6aca1 100644
  })
  
  describe('glassTint', () => {
+diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
+index f47e66d..f986ee3 100644
+--- a/apps/desktop/tests/main-startup.spec.ts
++++ b/apps/desktop/tests/main-startup.spec.ts
+@@ -1397,6 +1397,16 @@ describe('desktop main startup', () => {
+     return host
+   }
+ 
++  /** The Linux tray's glass-mode checkbox, as the running shell last built its context menu. */
++  function trayGlassMenuItem(): { readonly checked?: boolean; readonly click?: (item: { checked: boolean }) => void } {
++    const template = harness.menu.buildFromTemplate.mock.calls
++      .map(([items]) => items)
++      .find(items => items.some(item => item.label === en.glassMode))
++    const item = template?.find(entry => entry.label === en.glassMode)
++    if (item === undefined) throw new Error('tray menu without the glass-mode item')
++    return item as unknown as { readonly checked?: boolean; readonly click?: (item: { checked: boolean }) => void }
++  }
++
+   it('hides the workspace before intentional Host shutdown can look like reconnection', async () => {
+     const host = await readyWorkspace()
+     const window = harness.windows[0]!
+@@ -1441,6 +1451,39 @@ describe('desktop main startup', () => {
+     expect(harness.trays[0]!.setContextMenu.mock.calls.length).toBe(relabels + 1)
+   })
+ 
++  it('asks before switching glass mode and leaves the mode untouched on cancel', async () => {
++    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++    await readyWorkspace()
++    const relabels = harness.trays[0]!.setContextMenu.mock.calls.length
++    const item = trayGlassMenuItem()
++    expect(item.checked).toBe(false)
++    item.click?.({ checked: true })
++    await vi.waitFor(() => { expect(harness.dialog.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({ title: en.glassRestartTitle })) })
++    // Cancel (the default mock response) keeps the running window, writes no preference, and relabels
++    // the menu so the checkbox falls back to the live mode.
++    await vi.waitFor(() => { expect(harness.trays[0]!.setContextMenu.mock.calls.length).toBe(relabels + 1) })
++    expect(harness.app.relaunch).not.toHaveBeenCalled()
++    const settings = JSON.parse(readFileSync(join(harness.app.getPath('userData'), 'desktop', 'settings.json'), 'utf8')) as {
++      appearance?: { glass?: boolean }
++    }
++    expect(settings.appearance?.glass).toBeUndefined()
++  })
++
++  it('persists the glass switch and relaunches only after the confirmation', async () => {
++    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++    const host = await readyWorkspace()
++    harness.dialog.showMessageBox.mockResolvedValueOnce({ response: 0, checkboxChecked: false })
++    trayGlassMenuItem().click?.({ checked: true })
++    await vi.waitFor(() => { expect(harness.app.relaunch).toHaveBeenCalledOnce() })
++    const settings = JSON.parse(readFileSync(join(harness.app.getPath('userData'), 'desktop', 'settings.json'), 'utf8')) as {
++      appearance: { glass?: boolean }
++    }
++    expect(settings.appearance.glass).toBe(true)
++    await host.stopping.promise
++    host.exited.resolve()
++    await harness.quitCompleted.promise
++  })
++
+   it('hides a macOS owner with a mandatory view without quitting or stopping the Host', async () => {
+     vi.stubGlobal('process', { ...process, platform: 'darwin' })
+     harness.embeddedPolicy = { origin: 'https://policy.example.com', allowedPageOrigins: ['https://downloads.example.com'] }
 diff --git a/apps/desktop/tests/settings.spec.ts b/apps/desktop/tests/settings.spec.ts
 index b285bb9..33fcca6 100644
 --- a/apps/desktop/tests/settings.spec.ts

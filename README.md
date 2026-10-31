@@ -26,7 +26,7 @@ fork 只在上面叠加了下面这些。
 | 改动 | 内容 |
 |---|---|
 | 新补丁 `0019-desktop-linux-frameless-caption.patch` | 普通模式下把 Linux 主窗做成**无边框**：沿用 `0016` 的 caption 座位，自绘最小化 / 最大化 / 关闭走 `dsh-desktop:window-controls`，最大化状态由主进程回推；玻璃模式保持原生边框，两种模式由托盘开关切换 |
-| 新补丁 `0020-desktop-linux-tray-glass-switch.patch` | 托盘菜单里加「玻璃模式」勾选项：选择写进 Electron userData 的 `settings.json`，重启应用后生效；`DSH_DESKTOP_GLASS` 环境变量仍然可用，托盘写过选择后以托盘为准 |
+| 新补丁 `0020-desktop-linux-tray-glass-switch.patch` | 托盘菜单里加「玻璃模式」勾选项：点击先弹确认框（重启 / 取消），确认后选择写进 Electron userData 的 `settings.json` 并重启应用；取消则保持当前模式。`DSH_DESKTOP_GLASS` 环境变量仍然可用，托盘写过选择后以托盘为准 |
 | 补丁 `0003` 增补 | deb/rpm 声明托盘菜单要的 `libdbusmenu-glib.so.4`（原项目只在 Arch 的 PKGBUILD `depends` 里声明）；接管 `afterInstall`，清掉旧版本升级留下的空 `node_modules` 目录，让升级自愈 |
 | `scripts/verify.sh` | 加产物断言：主进程的窗口控制通道与 preload 里的 caption 模块 |
 | 已知限制 | 补一条实测结论：第三方插件里为 Electron 编译的 NAN 原生模块会让 Host 段错误 |
@@ -35,8 +35,9 @@ fork 只在上面叠加了下面这些。
 | 玻璃模式（`0018`） | 原项目已有，本 fork 原样继承；托盘开关（`0020`）是新增的入口 |
 
 与上游同步的方式不变：`scripts/fetch-upstream.sh` 拉 `PKGBUILD` 里 `_tag` 指的那个 commit，
-补丁相对它生成。**本 fork 新增的 `0019` / `0020` 目前做到「补丁两条路干净 + 官方 typecheck 5 道门 + 上游桌面
-单测整套（2024 通过 / 63 跳过）零失败」**；整包构建与活体验证沿用原项目在 `0.2.2-alpha.2` 上的那一轮记录，尚未在本 fork 重跑。
+补丁相对它生成。**本 fork 新增的 `0019` / `0020` 已在本 fork 上完整验证**：补丁两条路干净、官方 typecheck 5 道门全过、
+上游桌面单测整套（2026 通过 / 63 跳过）零失败、`build.sh --all` 出齐三件套、`verify.sh --runtime`
+活体矩阵全绿（玻璃模式的持久化读取路径另做了活体冒烟）。
 
 ## 项目产物
 
@@ -167,8 +168,9 @@ dsh-market 的宿主探测会落空；`0017` 把打包安装的 resources 根传
 侧栏半透明 / 毛玻璃（`0018`，原项目的补丁）。**最方便的入口是托盘菜单里的「玻璃模式」勾选项**
 （`0020`）：
 
-- 勾选状态来自当前运行的实例；点击后写进 `settings.json` 的 `appearance.glass`，应用自动重启，
-  新窗口带透明背景。`transparent` 是窗口创建期选项，所以这一项必须重启才生效。
+- 勾选状态来自当前运行的实例；点击后先弹确认框（「重启」/「取消」）：确认才把选择写进
+  `settings.json` 的 `appearance.glass` 并重启应用，新窗口带透明背景；取消则什么都不改，勾选恢复成
+  当前模式。`transparent` 是窗口创建期选项，所以这一项必须重启才生效。
 - 托盘还没写过选择时，环境变量仍然有效：`DSH_DESKTOP_GLASS=1 deepseek-harness`。托盘点过之后以
   托盘的选择为准——否则带着环境变量的重启会立刻把开关拧回去。Windows 的托盘没有这一项。
 - 开启后窗口近似官方桌面端 macOS 版布局：原生菜单栏自动隐藏、按 `Alt` 才出现；侧栏收起是整列消失、

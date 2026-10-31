@@ -30,7 +30,7 @@ only `0003` among patches `0001`–`0018` carries additions from this fork (see 
 | Change | Content |
 |---|---|
 | New patch `0019-desktop-linux-frameless-caption.patch` | In normal mode the Linux main window becomes **frameless**: it reuses the caption seat `0016` already wires up, draws its own minimize / maximize / close through `dsh-desktop:window-controls`, and the main process publishes the maximized state. Glass mode keeps the native frame; the tray switch picks between the two |
-| New patch `0020-desktop-linux-tray-glass-switch.patch` | A "Glass mode" checkbox in the tray menu: the choice is written to `settings.json` under Electron's userData and takes effect after a restart. `DSH_DESKTOP_GLASS` still works; once the tray has written a choice, the tray wins |
+| New patch `0020-desktop-linux-tray-glass-switch.patch` | A "Glass mode" checkbox in the tray menu: clicking asks for confirmation (Restart / Cancel), then writes the choice to `settings.json` under Electron's userData and restarts; cancelling keeps the current mode. `DSH_DESKTOP_GLASS` still works; once the tray has written a choice, the tray wins |
 | Patch `0003` extended | The deb and rpm packages declare `libdbusmenu-glib.so.4`, which the tray menu needs (the original project only declares it in the Arch PKGBUILD `depends`); `afterInstall` is taken over to prune empty `node_modules` directories left by a previous version, so upgrades heal themselves |
 | `scripts/verify.sh` | One artifact assertion: the window control channel in the main process and the caption module in the preload |
 | Known limitations | One measured conclusion: a third-party plugin carrying a NAN native module built for Electron segfaults the Host |
@@ -40,9 +40,10 @@ only `0003` among patches `0001`–`0018` carries additions from this fork (see 
 
 Tracking upstream works exactly as in the original project: `scripts/fetch-upstream.sh` fetches the
 commit `PKGBUILD`'s `_tag` names and the patches are generated against it. **The two patches this fork adds are
-verified to the level of "both patch paths are clean + the 5 official typecheck gates + the full
-upstream desktop unit suite (2024 passed / 63 skipped) passing"**; the full artifact build and live matrix still rely on the original project's `0.2.2-alpha.2`
-run and have not been repeated in this fork.
+verified inside this fork**: both patch paths are clean, the 5 official typecheck gates pass, the
+full upstream desktop unit suite passes (2026 passed / 63 skipped), `build.sh --all` produces all
+three artifacts, and the `verify.sh --runtime` live matrix is green (the persisted glass-mode read
+path got a live smoke test as well).
 
 ## What this project produces
 
@@ -198,9 +199,10 @@ compatibility filter and "update to a compatible version".
 A translucent / frosted-glass sidebar (patch `0018`, from the original project). **The easiest entry
 is the "Glass mode" checkbox in the tray menu** (patch `0020`):
 
-- Its state comes from the running instance. Clicking writes `appearance.glass` into `settings.json`
-  and the application relaunches so the new window starts transparent: `transparent` is a window
-  creation option, so this one needs a restart.
+- Its state comes from the running instance. Clicking asks for confirmation (Restart / Cancel): only
+  on confirm is `appearance.glass` written into `settings.json` and the application relaunched so the
+  new window starts transparent — cancelling changes nothing and the checkbox falls back to the live
+  mode. `transparent` is a window creation option, so this one needs a restart.
 - Until the tray has written a choice, the environment variable still works:
   `DSH_DESKTOP_GLASS=1 deepseek-harness`. Once the tray has written one, the tray wins — otherwise a
   relaunch that still carries the variable would immediately flip the switch back. Windows trays have
