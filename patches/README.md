@@ -2,12 +2,15 @@
 
 按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `f3803c96`（tag `dsh-v0.2.2-alpha.2`）。
 
+`0019`（无边框自绘标题栏）与 `0020`（托盘里的玻璃模式开关）是本 fork 在 ffyfox 原项目的补丁系列之上
+新增的两条；其余 16 条（含 `0018` 玻璃模式）与该项目的版本一致。
+
 组织约定：**一条改动只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，改动互不重复、
 按编号应用（顺序依赖见下）。补丁由 `git diff -- <files>` 从开发工作树生成；**一个文件可以被
 多个补丁触及**，此时必须按「基线 + 只有这一个补丁」的隔离树取 diff，否则会把另一个补丁的
 hunk 一起带进来。
 
-**`0017` 与 `0018` 是这条约定的两个已知例外。**
+**`0017`、`0018`、`0019`、`0020` 是这条约定的已知例外。**
 
 `0017` 的 5 个文件（`src/node-environment.ts`、`src/main.ts`、`tests/host-process.spec.ts`、
 `tests/node-environment.spec.ts`、`desktop-host/src/index.ts`）全部也属于 `0008`，而且它的 diff 上下文含
@@ -25,6 +28,13 @@ hunk 一起带进来。
 `src/client/PluginManagerPage.module.css` / `src/client/TaskManagerPage.module.css`），
 其中 4 个是新增文件。
 
+`0019` 同理：5 个文件里 `src/main.ts` 同时属于 `0008` / `0016` / `0018`（`frame: false` 落进
+`createWindow()`，紧挨着玻璃模式的 `transparent` 分支），`src/preload-app.ts` 与
+`tests/main-startup.spec.ts` 也属于 `0016` —— 所以它必须排在 `0018` 之后生成。`0020` 的 9 个文件
+全部落在前置补丁上：`src/glass-mode.ts` 由 `0018` 新建，`src/main.ts` / `src/tray.ts` / `src/locale.ts` /
+`src/settings.ts` 被多个前置补丁或基线本身触及，所以它排在系列最后生成；`tests/welcome-startup.spec.ts`
+的 `settings.ts` mock 也要跟着补 `appearance` 字段，否则那条启动用例会挂在 `appearance.glass` 上。
+
 已验证（0.2.2-alpha.2）：这一轮是完整同步 —— 上游从 rc.4 到这个 tag 走了 2161 个提交、6944 个改动文件
 （剔除 `.agents/notes` 之后：3454 新增 / 3430 修改 / 60 删除）。14 个补丁触及的文件被改过而重生；
 `0010` / `0011` 逐字节未动；`0012` 只差 `index` 行的缩写宽度（新树 7 位够用、旧树要 8 位，内容一字不差，
@@ -32,6 +42,7 @@ hunk 一起带进来。
 （tag `dsh-v0.2.2-alpha.2`）上，`patch -Np1`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` /
 CI）都干净通过，两条路打出来的树与「新基线 + 逐补丁累加」的隔离树 `diff -r` 零差异；18 条校验和由
 `makepkg --verifysource` 逐条验证通过（Arch 包仍由 CI 的 makepkg job 产出，本机不整包）。
+
 `pnpm-lock.yaml` 这一轮被上游改过（31551 → 34022 行），`apps/desktop/package.json` 新增
 `dsh-official-bundles`、`dsh-plugin-manager`、`dsh-util-file-drag`、`zod`、`tencentcloud-sdk-nodejs-teo`
 五个依赖；根 `engines` 从 `^22.19.0 || >=24.0.0` 抬到 `>=24.9.0`，README 的 Node 门槛跟着改。
@@ -53,6 +64,18 @@ deb 291 689 160 B（`d0f96ab4…`）、rpm 241 742 603 B（`e330e7c3…`），�
 `0.2.2-alpha.2`（`hostProtocolVersion` 仍是 4）、`resources/app/package.json` 的 `dshBuildCommit` 记的是
 上游 `f3803c96…`（`dshBuildDirty: true`，不是本仓库的提交），正是 0004 的 Linux 闸门、0008 的运行时选择与
 0012 的「环境变量优先」在起作用。
+
+本 fork 加上 `0019` / `0020` 之后又单独验了一轮（2026-10-31）：18 个补丁（`0003` 也带上本 fork 的
+`libdbusmenu` / `afterInstall` 增补）按序打在同一个 `dsh-v0.2.2-alpha.2` release 源码包
+（`dsh-v0.2.2-alpha.2.tar.gz`，sha256 `85f1af41…`）上，`git apply`（`apply-patches.sh`）与 GNU
+`patch -Np1`（makepkg 的 `prepare()`）两条路都干净通过，两条路打出来的 79 个改动文件 `diff -r` 零差异；
+`source` 的 20 条校验和用 `sha256sum` 逐条复核（本机没有 makepkg，`makepkg --verifysource` 留给 CI）。
+`pnpm install --frozen-lockfile` 通过；`build.ts --scope typecheck` 的 5 道门（Host Typert / host compiler /
+client compiler / host aggregate check / client aggregate check）全过；上游桌面单测整套（175 个文件：
+170 通过 / 5 跳过；2087 个用例：2024 通过 / 63 跳过）**零失败** —— `macos-notarization-proxy.spec.ts` 那
+15 条要在 `pnpm run build:native-system` + `native/system` 的 `build:ts` 之后才跑得起来，直接拿
+`node_modules/.bin/vitest` 跑会以「flock addon is not built」失败（不是补丁问题）。整包构建
+（`build.sh --all` / `makepkg`）与 `verify.sh` 的活体矩阵这一轮**没有重跑**，留给 CI 与发版前那一轮。
 
 **编号 `0014` 已作废，空号不复用。** 它当年把 lockfile 里 electron 的解析从 44.0.0 提到 44.4.5
 （那个版本的 Linux 托盘在 KDE 与 GNOME 下都注册不上）；0.2.1-alpha.2 的 lockfile 自己解析到 44.7.0，
@@ -200,7 +223,7 @@ controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了
 |---|---|---|
 | `0001-desktop-target-model-add-linux-x64.patch` | `desktop-build-paths.{mjs,d.mts}`、`desktop-auto-update-environment.{mjs,d.mts}`、`desktop-release-store.ts` | target 白名单加 `linux-x64`；`desktopTargetPlatform` 返回 `'linux'`；新增 `desktopElectronExecutablePath()`；保留清单的 schema 也认出 `linux-x64`（上游 0.2.1-alpha.3 新增的 `retain-desktop-ci.ts` 把 `resolveDesktopBuildTarget()` 的结果直接交给它，窄联合会让 `tsc -p tsconfig.host.json` 报错） |
 | `0002-package-target-add-linux-x64.patch` | `package-target.ts`、`desktop-upload-plan.ts` | 打包目标表加 `linux-x64`；Linux 构建主机校验（当初还放宽了 `--unsigned` 的平台限制，0.2.1-alpha.2 起上游把那条限制整条删掉，这一半随之消失） |
-| `0003-electron-builder-linux-configuration.patch` | `electron-builder-config.mjs` | Linux 关闭 asar；显式 `executableName`；Linux 不嵌入强制更新策略；Linux 的打包格式与包元数据来自发布设置（见 `0011`）；显式钉住 deb/rpm 的 `packageName` / `packageCategory` 与 `linux.synopsis`；用 `appImage.executableArgs: []` 去掉 legacy 工具集写死的 `--no-sandbox`；Linux 图标显式指定为 SVG —— 单个 PNG 文件会被 electron-builder **原样按自身像素尺寸**装进 `hicolor/1024x1024/apps`，而多个发行版的 `hicolor/index.theme` 并不声明该目录（Arch 就没有），图标会解析不到；SVG 落到 `hicolor/scalable/apps`，所有发行版都声明 |
+| `0003-electron-builder-linux-configuration.patch` | `electron-builder-config.mjs` | Linux 关闭 asar；显式 `executableName`；Linux 不嵌入强制更新策略；Linux 的打包格式与包元数据来自发布设置（见 `0011`）；显式钉住 deb/rpm 的 `packageName` / `packageCategory` 与 `linux.synopsis`；用 `appImage.executableArgs: []` 去掉 legacy 工具集写死的 `--no-sandbox`；Linux 图标显式指定为 SVG —— 单个 PNG 文件会被 electron-builder **原样按自身像素尺寸**装进 `hicolor/1024x1024/apps`，而多个发行版的 `hicolor/index.theme` 并不声明该目录（Arch 就没有），图标会解析不到；SVG 落到 `hicolor/scalable/apps`，所有发行版都声明；**本 fork 增补**：deb/rpm 通过 `fpm` 声明托盘菜单要的 `libdbusmenu-glib4`（Arch 侧是 PKGBUILD 的 `depends`），并接管 `afterInstall`（上游模板 + 清掉旧版本升级留下的空 `node_modules` 目录，见 `apps/desktop/scripts/linux-after-install.sh`） |
 | `0004-prepare-target-electron-distribution.patch` | `prepare-dsh.ts`、`prepare-runtime.ts` | Electron 分发路径按 target 推导，不再假设「非 mac 即 win32」；打包期 `pnpm install` / 运行时冒烟改用 Host 运行时；`versions.json.node` 记为 payload 实际运行的 Node 版本；Linux 上整块跳过 rc.2 新增的 `prepare:cli`（见「注意」） |
 | `0005-desktop-linux-release-settings.patch` | `desktop-package-environment.{mjs,d.mts}`、`desktop-toolchain-preflight.ts`、`.gitignore`、`.env.linux.example`、`tests/desktop-package-environment.spec.ts` | 支持 `.env.linux`；Linux 不套用 Windows/macOS 专属设置；Linux 不要求策略 origin；修掉 `win32 ? … : macOS` 的隐含假设；Linux 文件白名单加 `MAINTAINER`/`HOMEPAGE`（并从环境里剥掉，保证发布设置只由文件拥有）；打了 rpm 才预检 `rpmbuild` |
 | `0006-desktop-package-linux-scripts.patch` | `apps/desktop/package.json` | `package:linux:x64` / `package:linux:x64:dir` |
@@ -246,7 +269,8 @@ controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了
 这是**半统一**：窗口装饰一律不动（KDE 是 KWin 的装饰插件、GNOME 是 Mutter 画的、平铺窗口管理器
 本来就没有装饰），只把网页内那一条 caption 对齐 Windows。Linux 的 in-page 菜单与 Windows 共用
 同一套属性与度量（`data-windows-titlebar`、`--dsh-windows-titlebar-height: 40px`、
-`--dsh-windows-menu-start`，见 `preload-menu.ts`），所以客户端一个字都没改。
+`--dsh-windows-menu-start`，见 `preload-menu.ts`），所以客户端一个字都没改。本 fork 的 `0019` 在这条
+座位上继续补：去掉 OS 边框，并画上右边那三个窗口按钮。
 
 ## 让插件市场认得宿主版本（0017）
 
@@ -320,6 +344,29 @@ GNOME 50（Ubuntu 26.04.1）、GNOME 48（Debian 13）、GNOME 50（Fedora 44）
 Wayland）读数：展开 grid `280px …`、条 52px、切换钮 `(240,11)`（条右端）中心 y25；收起 grid `0px …`、
 座椅 `(12,11)`+`(48,11)` 中心 y25、侧栏列宽 0、内容区从 x0 开始；普通模式不受影响（caption 40px、收起
 `0px`、控件仍在 `(12,6)`/`(48,6)`）。
+
+## 无边框自绘标题栏（0019）
+
+| 补丁 | 覆盖文件 | 内容 |
+|---|---|---|
+| `0019-desktop-linux-frameless-caption.patch` | `src/ipc.ts`、`src/main.ts`、`src/preload-app.ts`、`src/preload-linux-caption.ts`（新增）、`tests/main-startup.spec.ts` | Linux 主窗去掉 OS 边框（`frame: false`），把 `0016` 铺好的 40 DIP caption 座位补完整：右边自绘最小化 / 最大化 / 关闭，走 `dsh-desktop:window-controls`；主进程校验 sender 后执行窗口动作，并把最大化状态经 `dsh-desktop:window-controls-state` 回推，按钮字形跟着窗口状态变。左边仍是 `0016` 的 ☰ 与「应用 / 编辑」菜单按钮，中间空白是拖拽带。`installLinuxCaption()` 只在 Linux 且**不在玻璃模式**时安装 |
+
+**玻璃模式与无边框互斥。** 两种布局都改 `createWindow()`，但取向相反：玻璃模式要 `transparent: true`
+加原生 `frame`（`Alt` 才能唤出菜单栏，见 `0018`），普通模式要 `frame: false` 加页内控件。所以 0019 的
+边框分支带 `!glass`，preload 用 `--dsh-desktop-glass` 参数判玻璃模式而不装控件；托盘开关（`0020`）
+落到的就是这个二选一。测试两条都钉住：普通 Linux 下窗口选项含 `frame: false`；`DSH_DESKTOP_GLASS=1`
+时窗口选项里没有 `frame`。
+
+## 托盘里的玻璃模式开关（0020）
+
+| 补丁 | 覆盖文件 | 内容 |
+|---|---|---|
+| `0020-desktop-linux-tray-glass-switch.patch` | `src/settings.ts`、`src/glass-mode.ts`、`src/tray.ts`、`src/locale.ts`、`src/main.ts`、`tests/{settings,tray,glass-mode,welcome-startup}.spec.ts` | Linux 托盘菜单多一个 `type: 'checkbox'` 的「玻璃模式 / Glass mode」，勾选状态来自正在运行的 shell。点击后把选择写进 `settings.json` 的 `appearance.glass`（保留文档里其他字段；解析不了的文件不覆盖，只 warn 并恢复勾选），然后 `app.relaunch()`：`transparent` 与 `frame` 都是 `BrowserWindow` 创建期选项，进程内改不了，这也与上游对 `settings.json` 的约定一致（「changes require a restart」）。`glass-mode.ts` 的进程内偏好由 `main()` 在读完设置后注入，优先级高于 `DSH_DESKTOP_GLASS` —— 托盘点过之后环境变量不会再把它拧回去；没点过（文档里没有 `appearance.glass`）时仍由环境变量决定，老用法不变。Windows 托盘不传这组回调，菜单仍是「打开 / 退出」两项 |
+
+`settings.json` 在 `<userData>/desktop/` 下（Electron 的 userData，不是 `DSH_HOME`），与既有的
+`updates.allowTestAuthPopupWindow` 同文档；首次启动创建默认文档时**不写** `appearance`，所以
+`DSH_DESKTOP_GLASS=1` 在托盘还没写过选择之前仍然有效。托盘里只有这一项会重启应用；会话与 Host 走
+既有退出流程，任务不丢。浓度仍只由 `DSH_DESKTOP_GLASS_TINT` 控制（`0018`），本补丁不改它。
 
 ## Arch 包与 deb/rpm 构建树的差异（无害）
 

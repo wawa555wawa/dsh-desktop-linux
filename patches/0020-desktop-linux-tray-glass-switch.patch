@@ -1,0 +1,458 @@
+diff --git a/apps/desktop/src/glass-mode.ts b/apps/desktop/src/glass-mode.ts
+index 97512e7..aee501d 100644
+--- a/apps/desktop/src/glass-mode.ts
++++ b/apps/desktop/src/glass-mode.ts
+@@ -4,11 +4,28 @@
+ export const GLASS_ARGUMENT = '--dsh-desktop-glass'
+ 
+ /**
+- * Whether the user requested glass mode: Linux only, and only the exact value `1`.
++ * Persisted shell preference read at startup. Undefined keeps the environment variable in charge;
++ * either value means the user chose explicitly (the tray switch wrote it), so it wins over the
++ * variable and a relaunch that still carries `DSH_DESKTOP_GLASS=1` cannot undo the choice.
++ */
++let preference: boolean | undefined
++
++/**
++ * Install the persisted preference for this process.
++ * @param enabled - the stored switch, or undefined when the document holds none.
++ */
++export function setDesktopGlassPreference(enabled: boolean | undefined): void {
++  preference = enabled
++}
++
++/**
++ * Whether the user requested glass mode: Linux only. The tray switch wins when persisted; without
++ * it only the exact value `1` of `DSH_DESKTOP_GLASS` opens glass mode.
+  * @returns true when the primary window uses the Web layout and an auto-hidden menu bar.
+  */
+ export function desktopGlass(): boolean {
+-  return process.platform === 'linux' && process.env.DSH_DESKTOP_GLASS === '1'
++  if (process.platform !== 'linux') return false
++  return preference ?? process.env.DSH_DESKTOP_GLASS === '1'
+ }
+ 
+ /**
+diff --git a/apps/desktop/src/locale.ts b/apps/desktop/src/locale.ts
+index 74a1f19..1924c22 100644
+--- a/apps/desktop/src/locale.ts
++++ b/apps/desktop/src/locale.ts
+@@ -39,6 +39,7 @@ export const en = {
+   showAllApplications: 'Show All',
+   quitApplication: 'Quit DeepSeek Harness',
+   openApplication: 'Open DeepSeek Harness',
++  glassMode: 'Glass mode',
+   quit: 'Quit',
+   cancel: 'Cancel',
+   quitTitle: 'Quit DeepSeek Harness?',
+@@ -218,6 +219,7 @@ export const zh = {
+   showAllApplications: '显示全部',
+   quitApplication: '退出 DeepSeek Harness',
+   openApplication: '打开 DeepSeek Harness',
++  glassMode: '玻璃模式',
+   quit: '退出',
+   cancel: '取消',
+   quitTitle: '退出 DeepSeek Harness？',
+@@ -395,6 +397,7 @@ export const ja = {
+   showAllApplications: 'すべて表示',
+   quitApplication: 'DeepSeek Harness を終了',
+   openApplication: 'DeepSeek Harness を開く',
++  glassMode: 'グラスモード',
+   quit: '終了',
+   cancel: 'キャンセル',
+   quitTitle: 'DeepSeek Harness を終了しますか？',
+@@ -572,6 +575,7 @@ export const es = {
+   showAllApplications: 'Mostrar todo',
+   quitApplication: 'Salir de DeepSeek Harness',
+   openApplication: 'Abrir DeepSeek Harness',
++  glassMode: 'Modo cristal',
+   quit: 'Salir',
+   cancel: 'Cancelar',
+   quitTitle: '¿Salir de DeepSeek Harness?',
+@@ -749,6 +753,7 @@ export const fr = {
+   showAllApplications: 'Afficher tout',
+   quitApplication: 'Quitter DeepSeek Harness',
+   openApplication: 'Ouvrir DeepSeek Harness',
++  glassMode: 'Mode verre',
+   quit: 'Quitter',
+   cancel: 'Annuler',
+   quitTitle: 'Quitter DeepSeek Harness ?',
+@@ -926,6 +931,7 @@ export const de = {
+   showAllApplications: 'Alle einblenden',
+   quitApplication: 'DeepSeek Harness beenden',
+   openApplication: 'DeepSeek Harness öffnen',
++  glassMode: 'Glasmodus',
+   quit: 'Beenden',
+   cancel: 'Abbrechen',
+   quitTitle: 'DeepSeek Harness beenden?',
+@@ -1103,6 +1109,7 @@ export const ru = {
+   showAllApplications: 'Показать все',
+   quitApplication: 'Выйти из DeepSeek Harness',
+   openApplication: 'Открыть DeepSeek Harness',
++  glassMode: 'Стеклянный режим',
+   quit: 'Выйти',
+   cancel: 'Отмена',
+   quitTitle: 'Выйти из DeepSeek Harness?',
+@@ -1280,6 +1287,7 @@ export const pt = {
+   showAllApplications: 'Mostrar tudo',
+   quitApplication: 'Sair de DeepSeek Harness',
+   openApplication: 'Abra DeepSeek Harness',
++  glassMode: 'Modo vidro',
+   quit: 'Sair',
+   cancel: 'Cancelar',
+   quitTitle: 'Sair de DeepSeek Harness?',
+diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
+index a306a64..c8c28d5 100644
+--- a/apps/desktop/src/main.ts
++++ b/apps/desktop/src/main.ts
+@@ -32,7 +32,7 @@ import { installMicrophonePermissions } from './microphone-permissions.ts'
+ import { DesktopBackendController } from './backend-controller.ts'
+ import { DESKTOP_IPC, SCHEME, assertDesktopSender, type DesktopUpdateState } from './ipc.ts'
+ import { readDeviceInfo } from './device-info.ts'
+-import { GLASS_ARGUMENT, desktopGlass, glassTint } from './glass-mode.ts'
++import { GLASS_ARGUMENT, desktopGlass, glassTint, setDesktopGlassPreference } from './glass-mode.ts'
+ import { glassDocument } from './glass-document.ts'
+ import { desktopUpdateReadyConfirmation, formatDesktopMessage, resolveDesktopLocale, resolveDesktopStartupLocale } from './locale.ts'
+ import { claimDesktopSingleInstance } from './single-instance.ts'
+@@ -58,7 +58,7 @@ import { DesktopMandatoryUpdatePolicy, resolveDesktopPolicyConfig, type DesktopP
+ import { desktopClientMetadata, desktopClientVersion } from './client-metadata.ts'
+ import { DesktopMandatoryUpdateWindow } from './mandatory-update-window.ts'
+ import { DesktopPolicyTestAuth } from './policy-test-auth.ts'
+-import { readDesktopSettings } from './settings.ts'
++import { readDesktopSettings, writeDesktopGlassPreference } from './settings.ts'
+ import { readDesktopLocaleCache, writeDesktopLocaleCache } from './locale-cache.ts'
+ import { DesktopUpdateDialog, type UpdateDialogOptions } from './update-dialog.ts'
+ import { readDesktopRuntime } from './runtime-tree.ts'
+@@ -394,6 +394,8 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+ 
+ async function main(): Promise<void> {
+   const desktopSettings = readDesktopSettings(app.getPath('userData'))
++  // The tray switch and DSH_DESKTOP_GLASS both feed one mode; the persisted choice wins.
++  setDesktopGlassPreference(desktopSettings.appearance.glass)
+   void pruneCrashReports(app.getPath('logs'))
+   const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
+   const updateJournal = journalDirectory === undefined ? undefined : new DesktopUpdateJournal(journalDirectory, app.getVersion())
+@@ -1134,7 +1136,26 @@ async function main(): Promise<void> {
+     // menu on a left click instead of forwarding one.
+     try {
+       tray = new DesktopTray({ iconPath: trayIconPath, locale: currentDesktopLocale,
+-        open: () => { focusPrimaryWindow() }, quit: () => { app.quit() } })
++        open: () => { focusPrimaryWindow() }, quit: () => { app.quit() },
++        // The glass switch is Linux-only: Windows has no such mode, so its tray keeps the two entries.
++        ...(process.platform === 'linux' ? {
++          glass: {
++            enabled: () => desktopGlass(),
++            set: (enabled: boolean) => {
++              try {
++                writeDesktopGlassPreference(app.getPath('userData'), enabled)
++              } catch (error) {
++                // The running window keeps its mode; put the checkbox back in step with it.
++                console.warn('desktop settings: glass-mode preference was not saved', error)
++                tray?.relabel()
++                return
++              }
++              // Transparency and the frame are BrowserWindow creation options, so the shell relaunches.
++              app.relaunch()
++              quitWithoutConfirmation()
++            },
++          },
++        } : {}) })
+     } catch (error) { console.warn('desktop tray: unavailable', error) }
+   }
+   // The confirmation sends the user to the tray, so it covers exactly the platforms that create one.
+diff --git a/apps/desktop/src/settings.ts b/apps/desktop/src/settings.ts
+index a4bb67b..a37f3e5 100644
+--- a/apps/desktop/src/settings.ts
++++ b/apps/desktop/src/settings.ts
+@@ -10,6 +10,10 @@ export interface DesktopSettings {
+   readonly updates: {
+     readonly allowTestAuthPopupWindow: boolean
+   }
++  readonly appearance: {
++    /** Persisted glass-mode switch; absent means the environment variable decides. */
++    readonly glass: boolean | undefined
++  }
+ }
+ 
+ function record(value: unknown): value is Record<string, unknown> {
+@@ -24,13 +28,15 @@ function record(value: unknown): value is Record<string, unknown> {
+ export function readDesktopSettings(userData: string): DesktopSettings {
+   const directory = join(userData, 'desktop')
+   const path = join(directory, 'settings.json')
+-  const defaults: DesktopSettings = { updates: { allowTestAuthPopupWindow: false } }
++  const defaults: DesktopSettings = { updates: { allowTestAuthPopupWindow: false }, appearance: { glass: undefined } }
+   try {
+     let raw: string
+     try { raw = readFileSync(path, 'utf8') } catch (error) {
+       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+       mkdirSync(directory, { recursive: true, mode: 0o700 })
+-      try { writeFileSync(path, `${JSON.stringify(defaults, null, 2)}\n`, { flag: 'wx', mode: 0o600 }) } catch (error) {
++      // The file on disk carries only fields the user can see; an absent glass key keeps the
++      // environment variable in charge, so first launch must not write one.
++      try { writeFileSync(path, `${JSON.stringify({ updates: defaults.updates }, null, 2)}\n`, { flag: 'wx', mode: 0o600 }) } catch (error) {
+         // An existing document belongs to the user, including one created during initialization.
+         if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+       }
+@@ -40,11 +46,18 @@ export function readDesktopSettings(userData: string): DesktopSettings {
+     if (!record(value) || (value.updates !== undefined && !record(value.updates))) {
+       throw new Error('expected a JSON object with an optional updates object')
+     }
++    if (value.appearance !== undefined && !record(value.appearance)) {
++      throw new Error('expected an optional appearance object')
++    }
+     const allow = value.updates?.allowTestAuthPopupWindow
+     if (allow !== undefined && typeof allow !== 'boolean') {
+       throw new Error('updates.allowTestAuthPopupWindow must be true or false')
+     }
+-    return { updates: { allowTestAuthPopupWindow: allow ?? false } }
++    const glass = value.appearance?.glass
++    if (glass !== undefined && typeof glass !== 'boolean') {
++      throw new Error('appearance.glass must be true or false')
++    }
++    return { updates: { allowTestAuthPopupWindow: allow ?? false }, appearance: { glass } }
+   } catch (error) {
+     try {
+       console.warn(`desktop settings: ${path}: using defaults because settings could not be loaded`, error)
+@@ -55,3 +68,29 @@ export function readDesktopSettings(userData: string): DesktopSettings {
+     return defaults
+   }
+ }
++
++/**
++ * Persist the glass-mode switch, keeping every other field of the document untouched.
++ *
++ * The tray menu owns this switch. A shell relaunch applies it because the window's transparency and
++ * frame are creation-time options; readers of the file (`readDesktopSettings`) never write it back.
++ * @param userData - Electron's userData directory, independent of DSH_HOME.
++ * @param glass - Whether the next launch should start in glass mode.
++ */
++export function writeDesktopGlassPreference(userData: string, glass: boolean): void {
++  const directory = join(userData, 'desktop')
++  const path = join(directory, 'settings.json')
++  let document: Record<string, unknown> = {}
++  try {
++    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'))
++    if (record(parsed)) document = parsed
++  } catch (error) {
++    // A missing file is the first-launch case; anything else (unreadable or unparseable) must not be
++    // rewritten, or a user's broken document would lose its updates preference.
++    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
++  }
++  const appearance = record(document.appearance) ? document.appearance : {}
++  document.appearance = { ...appearance, glass }
++  mkdirSync(directory, { recursive: true, mode: 0o700 })
++  writeFileSync(path, `${JSON.stringify(document, null, 2)}\n`, { mode: 0o600 })
++}
+diff --git a/apps/desktop/src/tray.ts b/apps/desktop/src/tray.ts
+index 1764a25..3ca9201 100644
+--- a/apps/desktop/src/tray.ts
++++ b/apps/desktop/src/tray.ts
+@@ -1,6 +1,6 @@
+ /** Windows and Linux system tray: the always-present way back to a hidden window and the explicit quit entry. */
+ 
+-import { Menu, nativeImage, Tray } from 'electron'
++import { Menu, nativeImage, Tray, type MenuItemConstructorOptions } from 'electron'
+ import type { DesktopLocale } from './locale.ts'
+ 
+ /** Main-process actions the tray triggers; both run the same paths as the window and application menu. */
+@@ -13,6 +13,15 @@ export interface DesktopTrayOptions {
+   readonly open: () => void
+   /** Request quit through the same confirmation as every other quit entry. */
+   readonly quit: () => void
++  /**
++   * Linux-only glass-mode switch. `enabled` reads the mode the running shell was created with and
++   * `set` applies the new choice (the shell relaunches, because window transparency is a
++   * creation-time option).
++   */
++  readonly glass?: {
++    readonly enabled: () => boolean
++    readonly set: (enabled: boolean) => void
++  }
+ }
+ 
+ /** Tray icon present for the whole run, not only while the window is hidden. */
+@@ -33,11 +42,22 @@ export class DesktopTray {
+     if (tray === undefined) return
+     const { messages } = this.options.locale()
+     tray.setToolTip(messages.aboutProduct)
+-    tray.setContextMenu(Menu.buildFromTemplate([
++    const items: MenuItemConstructorOptions[] = [
+       { label: messages.openApplication, click: () => { this.options.open() } },
+       { type: 'separator' },
+-      { label: messages.quitApplication, click: () => { this.options.quit() } },
+-    ]))
++    ]
++    const glass = this.options.glass
++    if (glass !== undefined) {
++      items.push({
++        label: messages.glassMode,
++        type: 'checkbox',
++        checked: glass.enabled(),
++        // Electron flips `checked` before the click; relabelling rebuilds the item from the live mode.
++        click: (item) => { glass.set(item.checked) },
++      }, { type: 'separator' })
++    }
++    items.push({ label: messages.quitApplication, click: () => { this.options.quit() } })
++    tray.setContextMenu(Menu.buildFromTemplate(items))
+   }
+ 
+   /** Remove the icon; called once the quit is confirmed so no dead icon outlives the process. */
+diff --git a/apps/desktop/tests/glass-mode.spec.ts b/apps/desktop/tests/glass-mode.spec.ts
+index cd8d2df..7b6aca1 100644
+--- a/apps/desktop/tests/glass-mode.spec.ts
++++ b/apps/desktop/tests/glass-mode.spec.ts
+@@ -1,9 +1,10 @@
+ import { afterEach, describe, expect, it, vi } from 'vitest'
+-import { GLASS_ARGUMENT, desktopGlass, glassTint } from '../src/glass-mode.ts'
++import { GLASS_ARGUMENT, desktopGlass, glassTint, setDesktopGlassPreference } from '../src/glass-mode.ts'
+ 
+ afterEach(() => {
+   vi.restoreAllMocks()
+   vi.unstubAllEnvs()
++  setDesktopGlassPreference(undefined)
+ })
+ 
+ describe('desktopGlass', () => {
+@@ -26,6 +27,23 @@ describe('desktopGlass', () => {
+   it('names the argument the main process hands to the preload', () => {
+     expect(GLASS_ARGUMENT).toBe('--dsh-desktop-glass')
+   })
++
++  it('lets the persisted tray switch override the environment in both directions', () => {
++    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++    vi.stubEnv('DSH_DESKTOP_GLASS', '1')
++    setDesktopGlassPreference(false)
++    expect(desktopGlass()).toBe(false)
++    setDesktopGlassPreference(true)
++    expect(desktopGlass()).toBe(true)
++    setDesktopGlassPreference(undefined)
++    expect(desktopGlass()).toBe(true)
++  })
++
++  it('keeps the persisted switch inert outside linux', () => {
++    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
++    setDesktopGlassPreference(true)
++    expect(desktopGlass()).toBe(false)
++  })
+ })
+ 
+ describe('glassTint', () => {
+diff --git a/apps/desktop/tests/settings.spec.ts b/apps/desktop/tests/settings.spec.ts
+index b285bb9..33fcca6 100644
+--- a/apps/desktop/tests/settings.spec.ts
++++ b/apps/desktop/tests/settings.spec.ts
+@@ -3,7 +3,7 @@ import * as fs from 'node:fs'
+ import { tmpdir } from 'node:os'
+ import { join } from 'node:path'
+ import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
+-import { readDesktopSettings } from '../src/settings.ts'
++import { readDesktopSettings, writeDesktopGlassPreference } from '../src/settings.ts'
+ 
+ vi.mock('node:fs', async importOriginal => ({ ...await importOriginal<typeof import('node:fs')>() }))
+ 
+@@ -22,7 +22,7 @@ it('creates a discoverable default file on first launch without touching other p
+   const { userData, path } = fixture()
+   rmSync(join(userData, 'desktop'), { recursive: true })
+   writeFileSync(join(userData, 'keybindings.json'), 'existing shortcuts\n')
+-  expect(readDesktopSettings(userData)).toEqual({ updates: { allowTestAuthPopupWindow: false } })
++  expect(readDesktopSettings(userData)).toEqual({ updates: { allowTestAuthPopupWindow: false }, appearance: { glass: undefined } })
+   expect(readFileSync(path, 'utf8')).toBe('{\n  "updates": {\n    "allowTestAuthPopupWindow": false\n  }\n}\n')
+   expect(readFileSync(join(userData, 'keybindings.json'), 'utf8')).toBe('existing shortcuts\n')
+ })
+@@ -50,7 +50,8 @@ it('loads explicit opt-in and opt-out on the next read without changing an earli
+ 
+ it.each(['', '{', 'null', '[]', '{"updates":null}', '{"updates":[]}',
+   '{"updates":{"allowTestAuthPopupWindow":"false"}}', '{"updates":{"allowTestAuthPopupWindow":1}}',
+-  '{"updates":{"allowTestAuthPopupWindow":null}}'])('reports invalid settings with their path and preserves the original: %s', (raw) => {
++  '{"updates":{"allowTestAuthPopupWindow":null}}', '{"appearance":[]}',
++  '{"appearance":{"glass":"true"}}', '{"appearance":{"glass":1}}'])('reports invalid settings with their path and preserves the original: %s', (raw) => {
+   const { userData, path } = fixture()
+   writeFileSync(path, raw)
+   expect(readDesktopSettings(userData).updates.allowTestAuthPopupWindow).toBe(false)
+@@ -58,6 +59,43 @@ it.each(['', '{', 'null', '[]', '{"updates":null}', '{"updates":[]}',
+   expect(readFileSync(path, 'utf8')).toBe(raw)
+ })
+ 
++it('reads the persisted glass switch and keeps it out of older documents', () => {
++  const { userData, path } = fixture()
++  writeFileSync(path, '{"updates":{"allowTestAuthPopupWindow":true}}')
++  expect(readDesktopSettings(userData).appearance.glass).toBeUndefined()
++  writeFileSync(path, '{"appearance":{"glass":false}}')
++  expect(readDesktopSettings(userData).appearance.glass).toBe(false)
++  writeFileSync(path, '{"appearance":{"glass":true}}')
++  expect(readDesktopSettings(userData).appearance.glass).toBe(true)
++})
++
++it('writes the glass switch without dropping other fields or the file mode', () => {
++  const { userData, path } = fixture()
++  writeFileSync(path, JSON.stringify({ updates: { allowTestAuthPopupWindow: true }, custom: 'preserve' }))
++  writeDesktopGlassPreference(userData, true)
++  expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({
++    updates: { allowTestAuthPopupWindow: true }, custom: 'preserve', appearance: { glass: true },
++  })
++  expect(readDesktopSettings(userData).appearance.glass).toBe(true)
++  writeDesktopGlassPreference(userData, false)
++  expect(readDesktopSettings(userData).appearance.glass).toBe(false)
++  expect(readDesktopSettings(userData).updates.allowTestAuthPopupWindow).toBe(true)
++})
++
++it('creates the settings document when the glass switch is the first write', () => {
++  const { userData, path } = fixture()
++  rmSync(join(userData, 'desktop'), { recursive: true })
++  writeDesktopGlassPreference(userData, true)
++  expect(readFileSync(path, 'utf8')).toBe('{\n  "appearance": {\n    "glass": true\n  }\n}\n')
++})
++
++it('refuses to overwrite a settings document it cannot parse', () => {
++  const { userData, path } = fixture()
++  writeFileSync(path, '{')
++  expect(() => { writeDesktopGlassPreference(userData, true) }).toThrow()
++  expect(readFileSync(path, 'utf8')).toBe('{')
++})
++
+ it('reports filesystem errors instead of replacing unreadable settings', () => {
+   const { userData, path } = fixture()
+   mkdirSync(path)
+diff --git a/apps/desktop/tests/tray.spec.ts b/apps/desktop/tests/tray.spec.ts
+index 11c3a48..61c676d 100644
+--- a/apps/desktop/tests/tray.spec.ts
++++ b/apps/desktop/tests/tray.spec.ts
+@@ -59,6 +59,25 @@ it('opens the window on a single click and routes menu entries to the open and q
+   expect(f.quit).toHaveBeenCalledOnce()
+ })
+ 
++it('adds the glass-mode switch only for a shell that offers it', () => {
++  let enabled = false
++  const set = vi.fn()
++  const open = vi.fn()
++  const quit = vi.fn()
++  const tray = new DesktopTray({ iconPath: '/app/resources/tray-linux.png', locale: () => resolveDesktopLocale('en'),
++    open, quit, glass: { enabled: () => enabled, set } })
++  const menu = native.menus[0]!
++  expect(labels(menu)).toEqual(['Open DeepSeek Harness', 'separator', 'Glass mode', 'separator', 'Quit DeepSeek Harness'])
++  const item = menu[2] as { checked: boolean; click: (item: { checked: boolean }) => void }
++  expect(item.checked).toBe(false)
++  item.click({ checked: true })
++  expect(set).toHaveBeenCalledWith(true)
++  enabled = true
++  tray.relabel()
++  expect((native.menus[1]![2] as { checked: boolean }).checked).toBe(true)
++  tray.dispose()
++})
++
+ it('relabels the menu in the current locale and ignores relabel after disposal', () => {
+   const f = setup()
+   f.setLocale('zh')
+diff --git a/apps/desktop/tests/welcome-startup.spec.ts b/apps/desktop/tests/welcome-startup.spec.ts
+index 2fb4f55..a2a4020 100644
+--- a/apps/desktop/tests/welcome-startup.spec.ts
++++ b/apps/desktop/tests/welcome-startup.spec.ts
+@@ -103,7 +103,7 @@ vi.mock('electron', () => ({
+ vi.mock('../src/tray.ts', () => ({ DesktopTray: class { relabel() {} dispose() {} } }))
+ 
+ vi.mock('../src/paths.ts', () => ({ resolveDesktopPaths: () => ({ profile: '/profile' }) }))
+-vi.mock('../src/settings.ts', () => ({ readDesktopSettings: () => ({ updates: { allowTestAuthPopupWindow: false } }) }))
++vi.mock('../src/settings.ts', () => ({ readDesktopSettings: () => ({ updates: { allowTestAuthPopupWindow: false }, appearance: { glass: undefined } }) }))
+ vi.mock('../src/login-shell-environment.ts', async importOriginal => ({
+   ...await importOriginal<typeof import('../src/login-shell-environment.ts')>(),
+   readDesktopLoginShellEnvironment: async (base: NodeJS.ProcessEnv) => ({ environment: base, failures: [] }),

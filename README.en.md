@@ -20,6 +20,30 @@ actually been tested.
 
 ![The DeepSeek Harness desktop interface in glass mode (Hyprland)](docs/screenshot-glass.png)
 
+## How this fork differs from the original project
+
+This repository is a fork of [ffyfox/dsh-desktop-linux](https://github.com/ffyfox/dsh-desktop-linux),
+based on its `2d52dac` (upstream `dsh-v0.2.2-alpha.2`). **The packaging pipeline itself is unchanged**:
+only `0003` among patches `0001`–`0018` carries additions from this fork (see the table below); the
+`scripts/` and `PKGBUILD` build logic are the original project's. This fork only adds:
+
+| Change | Content |
+|---|---|
+| New patch `0019-desktop-linux-frameless-caption.patch` | In normal mode the Linux main window becomes **frameless**: it reuses the caption seat `0016` already wires up, draws its own minimize / maximize / close through `dsh-desktop:window-controls`, and the main process publishes the maximized state. Glass mode keeps the native frame; the tray switch picks between the two |
+| New patch `0020-desktop-linux-tray-glass-switch.patch` | A "Glass mode" checkbox in the tray menu: the choice is written to `settings.json` under Electron's userData and takes effect after a restart. `DSH_DESKTOP_GLASS` still works; once the tray has written a choice, the tray wins |
+| Patch `0003` extended | The deb and rpm packages declare `libdbusmenu-glib.so.4`, which the tray menu needs (the original project only declares it in the Arch PKGBUILD `depends`); `afterInstall` is taken over to prune empty `node_modules` directories left by a previous version, so upgrades heal themselves |
+| `scripts/verify.sh` | One artifact assertion: the window control channel in the main process and the caption module in the preload |
+| Known limitations | One measured conclusion: a third-party plugin carrying a NAN native module built for Electron segfaults the Host |
+| `PKGBUILD` | Gains `0019` / `0020` and the new `0003` hash |
+| Screenshot | The header image shows what this fork actually runs: the frameless title bar |
+| Glass mode (`0018`) | Already in the original project and inherited as-is; the tray switch (`0020`) is the added entry point |
+
+Tracking upstream works exactly as in the original project: `scripts/fetch-upstream.sh` fetches the
+commit `PKGBUILD`'s `_tag` names and the patches are generated against it. **The two patches this fork adds are
+verified to the level of "both patch paths are clean + the 5 official typecheck gates + the full
+upstream desktop unit suite (2024 passed / 63 skipped) passing"**; the full artifact build and live matrix still rely on the original project's `0.2.2-alpha.2`
+run and have not been repeated in this fork.
+
 ## What this project produces
 
 What this project ships is **the official Electron application itself**:
@@ -149,7 +173,17 @@ patch `0013` adds the tray: the icon stays for the whole run and carries a tray 
 
 - To get the window back: the tray menu's "Open", or launch the application again (a second launch
   only focuses the instance that is already running).
-- To really quit: the tray menu's "Quit", the `Application` → `Quit` menu item, or `Ctrl+Q`.
+- To really quit: the tray menu's "Quit", "Quit" in the title bar's Application menu, or `Ctrl+Q`.
+- To switch glass mode: the "Glass mode" checkbox in the tray menu (see [Glass mode](#glass-mode)).
+
+**The title bar is drawn locally in normal mode.** Electron carries no Window Controls Overlay on
+Linux, so patch `0019` drops the main window's OS frame and reuses the same caption seat Windows
+receives from that overlay for a 40 DIP title bar: the sidebar toggle and the `Application / Edit`
+menus on the left (patch `0016` wires those Windows-style caption menu buttons to Linux), the
+self-drawn minimize / maximize / close on the right, both following the light and dark theme, and a
+drag region everywhere else. "Close" means the same as the system close button — hide the window, not
+quit. Glass mode keeps the native frame and the native window buttons and therefore has no such
+title bar.
 
 ### Plugin market host version
 
@@ -161,17 +195,22 @@ compatibility filter and "update to a compatible version".
 
 ### Glass mode
 
-To get a frosted-glass or translucent sidebar, start the application with an
-environment variable:
+A translucent / frosted-glass sidebar (patch `0018`, from the original project). **The easiest entry
+is the "Glass mode" checkbox in the tray menu** (patch `0020`):
 
-```bash
-DSH_DESKTOP_GLASS=1 deepseek-harness
-```
-
-The window then follows the official desktop app's macOS layout:
-
-- The native menu bar auto-hides and appears on `Alt`.
-- Sidebar fill defaults: 40% in the light theme, 50% in the dark theme. Override with `DSH_DESKTOP_GLASS_TINT=0..100`.
+- Its state comes from the running instance. Clicking writes `appearance.glass` into `settings.json`
+  and the application relaunches so the new window starts transparent: `transparent` is a window
+  creation option, so this one needs a restart.
+- Until the tray has written a choice, the environment variable still works:
+  `DSH_DESKTOP_GLASS=1 deepseek-harness`. Once the tray has written one, the tray wins — otherwise a
+  relaunch that still carries the variable would immediately flip the switch back. Windows trays have
+  no such item.
+- The window then follows the official desktop app's macOS layout: the native menu bar auto-hides and
+  appears on `Alt`; collapsing the sidebar removes the column entirely and moves the chrome to the
+  leading seat; the window keeps its native frame, which is why it is mutually exclusive with the
+  frameless normal mode.
+- Sidebar fill defaults: 40% in the light theme, 50% in the dark theme. Override with
+  `DSH_DESKTOP_GLASS_TINT=0..100`.
 - **Blur is up to the compositor**: Hyprland blurs (with `decoration:blur` enabled);
   niri needs `background-effect { blur true }` in its own configuration;
   KDE and GNOME do not blur — the sidebar is merely translucent, so raise the fill
@@ -225,6 +264,22 @@ Both tables below are kept up to date as reports come in — please tell us how 
   (`libfuse2` on Ubuntu 22.04) — or bypass the mount with
   `APPIMAGE_EXTRACT_AND_RUN=1 ./deepseek-harness-*.AppImage` (extracts to /tmp, about 1.2G extra).
   The deb, rpm and Arch packages are unaffected.
+- **A third-party plugin with a native module built for Electron stops the whole desktop app.** The
+  Linux Host runs on the bundled Node (not Electron's node mode), so a **NAN** native module compiled
+  for Electron (NAN is not ABI-stable) loads and then segfaults on first call. The app reports that it
+  could not start or stopped unexpectedly, the terminal shows only `dsh desktop host stopped`, and
+  stderr is empty — a segfault carries no JavaScript stack. Observed with `@linxin666/dsh-ssh` →
+  `ssh2` → `cpu-features` (its `build/config.gypi` records a higher `node_module_version` than the
+  Host's ABI). Crash reports land in
+  `~/.config/@deepseek-ai/dsh-desktop/logs/crash-*-host.log`. Recovery only touches that native
+  module: move it aside
+  (`mv ~/.dsh/profiles/desktop/node_modules/cpu-features{,.disabled}`, and `ssh2` falls back to its
+  JavaScript implementation) or rebuild it for the local Node
+  (`npm rebuild cpu-features --build-from-source`); the plugin itself can stay enabled.
+- **In normal mode the three window buttons have English tooltips.** Windows draws its caption
+  buttons and gets the wording localized from the system; this one is drawn locally
+  (`minimize` / `maximize` / `close`), while the `Application / Edit` caption menu labels follow the
+  application language. Glass mode uses the native window buttons and is not affected.
 - **No auto-update.** Upstream's mandatory-update policy channel only recognises
   `desktop-win` / `desktop-mac` client identities, and Linux artifacts carry no
   update channel, so the Linux build embeds no policy, never polls, and never

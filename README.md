@@ -16,6 +16,28 @@ release target."*）。本项目补的就是这一块：让官方打包流水线
 
 ![DeepSeek Harness 桌面端玻璃模式界面（Hyprland）](docs/screenshot-glass.png)
 
+## 这个 fork 与原项目的区别
+
+本仓库是 [ffyfox/dsh-desktop-linux](https://github.com/ffyfox/dsh-desktop-linux) 的 fork，
+基线是它的 `2d52dac`（上游 `dsh-v0.2.2-alpha.2`）。**打包流水线本身没有改**：补丁 `0001`–`0018`
+里只有 `0003` 带本 fork 的增补（见下表），`scripts/` 与 `PKGBUILD` 的构建逻辑都是原项目原样；这个
+fork 只在上面叠加了下面这些。
+
+| 改动 | 内容 |
+|---|---|
+| 新补丁 `0019-desktop-linux-frameless-caption.patch` | 普通模式下把 Linux 主窗做成**无边框**：沿用 `0016` 的 caption 座位，自绘最小化 / 最大化 / 关闭走 `dsh-desktop:window-controls`，最大化状态由主进程回推；玻璃模式保持原生边框，两种模式由托盘开关切换 |
+| 新补丁 `0020-desktop-linux-tray-glass-switch.patch` | 托盘菜单里加「玻璃模式」勾选项：选择写进 Electron userData 的 `settings.json`，重启应用后生效；`DSH_DESKTOP_GLASS` 环境变量仍然可用，托盘写过选择后以托盘为准 |
+| 补丁 `0003` 增补 | deb/rpm 声明托盘菜单要的 `libdbusmenu-glib.so.4`（原项目只在 Arch 的 PKGBUILD `depends` 里声明）；接管 `afterInstall`，清掉旧版本升级留下的空 `node_modules` 目录，让升级自愈 |
+| `scripts/verify.sh` | 加产物断言：主进程的窗口控制通道与 preload 里的 caption 模块 |
+| 已知限制 | 补一条实测结论：第三方插件里为 Electron 编译的 NAN 原生模块会让 Host 段错误 |
+| `PKGBUILD` | 加入 `0019` / `0020`、同步改动过的 `0003` 的 sha256 |
+| 截图 | 头图换成这个 fork 实际运行的无边框标题栏 |
+| 玻璃模式（`0018`） | 原项目已有，本 fork 原样继承；托盘开关（`0020`）是新增的入口 |
+
+与上游同步的方式不变：`scripts/fetch-upstream.sh` 拉 `PKGBUILD` 里 `_tag` 指的那个 commit，
+补丁相对它生成。**本 fork 新增的 `0019` / `0020` 目前做到「补丁两条路干净 + 官方 typecheck 5 道门 + 上游桌面
+单测整套（2024 通过 / 63 跳过）零失败」**；整包构建与活体验证沿用原项目在 `0.2.2-alpha.2` 上的那一轮记录，尚未在本 fork 重跑。
+
 ## 项目产物
 
 本项目的产物是**官方 Electron 应用本身**：
@@ -124,7 +146,14 @@ Arch 包只出未打包目录装进 `/opt/deepseek-harness-desktop`，`/usr/bin/
 参考上游在其他平台的实现，补丁 `0013` 把托盘补上：图标常驻，带托盘菜单。
 
 - 找回窗口：托盘菜单「打开」，或再启动一次（第二次启动只聚焦已有实例）。
-- 完全退出：托盘菜单「退出」、菜单栏 `Application` → `Quit`、或 `Ctrl+Q`。
+- 完全退出：托盘菜单「退出」、标题栏「应用」菜单里的「退出」、或 `Ctrl+Q`。
+- 切换玻璃模式：托盘菜单里的「玻璃模式」勾选项（见[玻璃模式](#玻璃模式)）。
+
+**标题栏是自绘的（普通模式）。** Linux 上 Electron 没有 Window Controls Overlay，所以补丁 `0019`
+让主窗去掉 OS 边框，用与 Windows 相同的 caption 座位画一条 40 DIP 的标题栏：左边是 ☰ 与「应用 /
+编辑」菜单（补丁 `0016` 把 Windows 那套自绘菜单按钮接到 Linux），右边是自绘的最小化 / 最大化 / 关闭，
+深浅色跟随主题；其余空白处是拖拽带，按住可以移动窗口。「关闭」与系统关闭键同义——隐藏窗口，不是退出。
+玻璃模式保留原生边框和原生窗口按钮，没有这条自绘标题栏。
 
 ### 插件市场的宿主版本
 
@@ -135,15 +164,15 @@ dsh-market 的宿主探测会落空；`0017` 把打包安装的 resources 根传
 
 ### 玻璃模式
 
-想让侧栏呈现毛玻璃或半透明效果，加环境变量启动：
+侧栏半透明 / 毛玻璃（`0018`，原项目的补丁）。**最方便的入口是托盘菜单里的「玻璃模式」勾选项**
+（`0020`）：
 
-```bash
-DSH_DESKTOP_GLASS=1 deepseek-harness
-```
-
-开启后窗口近似官方桌面端 macOS 版布局：
-
-- 原生菜单栏自动隐藏，按 `Alt` 才出现。
+- 勾选状态来自当前运行的实例；点击后写进 `settings.json` 的 `appearance.glass`，应用自动重启，
+  新窗口带透明背景。`transparent` 是窗口创建期选项，所以这一项必须重启才生效。
+- 托盘还没写过选择时，环境变量仍然有效：`DSH_DESKTOP_GLASS=1 deepseek-harness`。托盘点过之后以
+  托盘的选择为准——否则带着环境变量的重启会立刻把开关拧回去。Windows 的托盘没有这一项。
+- 开启后窗口近似官方桌面端 macOS 版布局：原生菜单栏自动隐藏、按 `Alt` 才出现；侧栏收起是整列消失、
+  控制按钮挪到窗口左上；窗口保留原生边框（这也让它与无边框的普通模式互斥）。
 - 侧栏浓度默认值：浅色主题 40%，深色主题 50%。可通过 `DSH_DESKTOP_GLASS_TINT=0..100` 调整。
 - **有没有模糊取决于合成器**：Hyprland 能模糊（要开着 `decoration:blur`）；
   niri 要自己在配置里开 `background-effect { blur true }`；
@@ -195,6 +224,18 @@ DSH_DESKTOP_GLASS=1 deepseek-harness
   Debian 13 与 Ubuntu 24.04+ `sudo apt install libfuse2t64`（Ubuntu 22.04 是 `libfuse2`）；
   或 `APPIMAGE_EXTRACT_AND_RUN=1 ./deepseek-harness-*.AppImage` 绕过（解包到 /tmp，多占约 1.2 G）。
   deb / rpm / Arch 包不受影响。
+- **带 Electron 编译原生模块的第三方插件会让整个桌端起不来。** Linux 的 Host 跑在自带的 Node 上
+  （不是 Electron 的 node 模式），插件里那些**为 Electron 编译的 NAN 原生模块**（NAN 不是 ABI 稳定的）
+  能加载，但一调用就段错误。表现是弹「应用无法启动或已意外停止」、终端只有
+  `dsh desktop host stopped`、stderr 一片空白——段错误没有 JS 堆栈。实测案例：
+  `@linxin666/dsh-ssh` → `ssh2` → `cpu-features`（它的 `build/config.gypi` 记着
+  `node_module_version: 149`，而 Host 是更低的 ABI）。诊断日志在
+  `~/.config/@deepseek-ai/dsh-desktop/logs/crash-*-host.log`。恢复只需处理那个原生模块：挪走它
+  （`mv ~/.dsh/profiles/desktop/node_modules/cpu-features{,.disabled}`，`ssh2` 会回落到 JS 实现）
+  或按本机 Node 重编（`npm rebuild cpu-features --build-from-source`），插件本身不用停。
+- **普通模式的标题栏三个窗口按钮的悬浮提示是英文。** Windows 的窗口按钮由系统绘制、文案由系统
+  本地化；Linux 普通模式这份是自绘的（`minimize` / `maximize` / `close`），而「应用 / 编辑」菜单按钮的
+  文案走应用语言。玻璃模式用原生窗口按钮，不受这条影响。
 - **没有自动更新。** 上游的强制更新策略通道只认 `desktop-win` / `desktop-mac` 客户端身份，
   Linux 产物也没有更新通道，所以 Linux 版不嵌入策略、不轮询、不会自己更新。
 - **没有「安装命令行工具」入口。** 官方桌面端在 macOS / Windows 上能从菜单把自带的 `dsh` CLI 装进

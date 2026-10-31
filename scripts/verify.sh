@@ -135,7 +135,7 @@ declare -A PATCH_COVERAGE=(
   [0001]=verify [0002]=verify [0003]=verify [0004]=verify [0005]=verify
   [0006]=verify [0007]=tests  [0008]=verify [0009]=verify [0010]=verify
   [0011]=verify [0012]=verify [0013]=verify [0016]=verify [0017]=verify
-  [0018]=matrix
+  [0018]=matrix [0019]=verify [0020]=verify
 )
 
 echo "== 0. 补丁覆盖登记（防过期）=="
@@ -217,6 +217,31 @@ if [[ -x "$UNPACKED/deepseek-harness" ]]; then
     fi
   else
     bad "resources/tray-linux.png 缺失（Linux 托盘会拿到空图标）"
+  fi
+  # 0019 / 0020：asar 关闭后主进程与 preload 的产物就是 resources/app/lib 下的真文件，所以这里
+  # 断言编出来的代码本身，防的是「改了 src 却没重编 build:official」。用只可能由这两条补丁产生的
+  # 字面量：0019 独有的两个 IPC 通道名与 preload 里的按钮动作名，0020 独有的托盘标签与菜单类型。
+  main_bundle="$UNPACKED/resources/app/lib/main.js"
+  preload_bundle="$UNPACKED/resources/app/lib/preload-app.cjs"
+  if [[ -f "$main_bundle" && -f "$preload_bundle" ]]; then
+    missing=""
+    grep -q -F 'dsh-desktop:window-controls' "$main_bundle" || missing="$missing 窗口控制通道"
+    grep -q -F 'dsh-desktop:window-controls-state' "$main_bundle" || missing="$missing 最大化状态回推"
+    grep -q -F 'Glass mode' "$main_bundle" || missing="$missing 托盘玻璃模式标签"
+    grep -q -E "type: ?[\"']checkbox[\"']" "$main_bundle" || missing="$missing 托盘勾选项"
+    if [[ -z "${missing// /}" ]]; then
+      ok "main.js 含 0019 窗口控制通道与 0020 托盘玻璃模式"
+    else
+      bad "main.js 缺：$missing（补丁 0019/0020 没编进主进程 bundle）"
+    fi
+    if grep -q -F 'dsh-desktop:window-controls-state' "$preload_bundle" \
+      && grep -q -F 'toggle-maximize' "$preload_bundle"; then
+      ok "preload-app.cjs 含 Linux caption 控件模块（补丁 0019）"
+    else
+      bad "preload-app.cjs 缺 Linux caption 控件模块（补丁 0019 没编进 preload bundle）"
+    fi
+  else
+    skip "读不到 resources/app/lib（未打包目录里没有主进程或 preload 产物）"
   fi
 else
   skip "linux-unpacked 不存在（还没跑 package:linux:x64:dir）"
