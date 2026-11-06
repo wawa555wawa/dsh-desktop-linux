@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/src/glass-mode.ts b/apps/desktop/src/glass-mode.ts
-index 97512e7..aee501d 100644
+index 97512e74..aee501dc 100644
 --- a/apps/desktop/src/glass-mode.ts
 +++ b/apps/desktop/src/glass-mode.ts
 @@ -4,11 +4,28 @@
@@ -34,7 +34,7 @@ index 97512e7..aee501d 100644
  
  /**
 diff --git a/apps/desktop/src/locale.ts b/apps/desktop/src/locale.ts
-index 74a1f19..e699899 100644
+index f5d30b82..d949c6ab 100644
 --- a/apps/desktop/src/locale.ts
 +++ b/apps/desktop/src/locale.ts
 @@ -39,6 +39,9 @@ export const en = {
@@ -47,7 +47,7 @@ index 74a1f19..e699899 100644
    quit: 'Quit',
    cancel: 'Cancel',
    quitTitle: 'Quit DeepSeek Harness?',
-@@ -218,6 +221,9 @@ export const zh = {
+@@ -219,6 +222,9 @@ export const zh = {
    showAllApplications: '显示全部',
    quitApplication: '退出 DeepSeek Harness',
    openApplication: '打开 DeepSeek Harness',
@@ -57,7 +57,7 @@ index 74a1f19..e699899 100644
    quit: '退出',
    cancel: '取消',
    quitTitle: '退出 DeepSeek Harness？',
-@@ -395,6 +401,9 @@ export const ja = {
+@@ -397,6 +403,9 @@ export const ja = {
    showAllApplications: 'すべて表示',
    quitApplication: 'DeepSeek Harness を終了',
    openApplication: 'DeepSeek Harness を開く',
@@ -67,7 +67,7 @@ index 74a1f19..e699899 100644
    quit: '終了',
    cancel: 'キャンセル',
    quitTitle: 'DeepSeek Harness を終了しますか？',
-@@ -572,6 +581,9 @@ export const es = {
+@@ -575,6 +584,9 @@ export const es = {
    showAllApplications: 'Mostrar todo',
    quitApplication: 'Salir de DeepSeek Harness',
    openApplication: 'Abrir DeepSeek Harness',
@@ -77,7 +77,7 @@ index 74a1f19..e699899 100644
    quit: 'Salir',
    cancel: 'Cancelar',
    quitTitle: '¿Salir de DeepSeek Harness?',
-@@ -749,6 +761,9 @@ export const fr = {
+@@ -753,6 +765,9 @@ export const fr = {
    showAllApplications: 'Afficher tout',
    quitApplication: 'Quitter DeepSeek Harness',
    openApplication: 'Ouvrir DeepSeek Harness',
@@ -87,7 +87,7 @@ index 74a1f19..e699899 100644
    quit: 'Quitter',
    cancel: 'Annuler',
    quitTitle: 'Quitter DeepSeek Harness ?',
-@@ -926,6 +941,9 @@ export const de = {
+@@ -931,6 +946,9 @@ export const de = {
    showAllApplications: 'Alle einblenden',
    quitApplication: 'DeepSeek Harness beenden',
    openApplication: 'DeepSeek Harness öffnen',
@@ -97,7 +97,7 @@ index 74a1f19..e699899 100644
    quit: 'Beenden',
    cancel: 'Abbrechen',
    quitTitle: 'DeepSeek Harness beenden?',
-@@ -1103,6 +1121,9 @@ export const ru = {
+@@ -1109,6 +1127,9 @@ export const ru = {
    showAllApplications: 'Показать все',
    quitApplication: 'Выйти из DeepSeek Harness',
    openApplication: 'Открыть DeepSeek Harness',
@@ -107,7 +107,7 @@ index 74a1f19..e699899 100644
    quit: 'Выйти',
    cancel: 'Отмена',
    quitTitle: 'Выйти из DeepSeek Harness?',
-@@ -1280,6 +1301,9 @@ export const pt = {
+@@ -1287,6 +1308,9 @@ export const pt = {
    showAllApplications: 'Mostrar tudo',
    quitApplication: 'Sair de DeepSeek Harness',
    openApplication: 'Abra DeepSeek Harness',
@@ -118,10 +118,10 @@ index 74a1f19..e699899 100644
    cancel: 'Cancelar',
    quitTitle: 'Sair de DeepSeek Harness?',
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index a306a64..eb960db 100644
+index 5d6849f4..8a5380f2 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -32,7 +32,7 @@ import { installMicrophonePermissions } from './microphone-permissions.ts'
+@@ -33,7 +33,7 @@ import { installMicrophonePermissions } from './microphone-permissions.ts'
  import { DesktopBackendController } from './backend-controller.ts'
  import { DESKTOP_IPC, SCHEME, assertDesktopSender, type DesktopUpdateState } from './ipc.ts'
  import { readDeviceInfo } from './device-info.ts'
@@ -130,7 +130,7 @@ index a306a64..eb960db 100644
  import { glassDocument } from './glass-document.ts'
  import { desktopUpdateReadyConfirmation, formatDesktopMessage, resolveDesktopLocale, resolveDesktopStartupLocale } from './locale.ts'
  import { claimDesktopSingleInstance } from './single-instance.ts'
-@@ -58,7 +58,7 @@ import { DesktopMandatoryUpdatePolicy, resolveDesktopPolicyConfig, type DesktopP
+@@ -59,7 +59,7 @@ import { DesktopMandatoryUpdatePolicy, resolveDesktopPolicyConfig, type DesktopP
  import { desktopClientMetadata, desktopClientVersion } from './client-metadata.ts'
  import { DesktopMandatoryUpdateWindow } from './mandatory-update-window.ts'
  import { DesktopPolicyTestAuth } from './policy-test-auth.ts'
@@ -139,7 +139,7 @@ index a306a64..eb960db 100644
  import { readDesktopLocaleCache, writeDesktopLocaleCache } from './locale-cache.ts'
  import { DesktopUpdateDialog, type UpdateDialogOptions } from './update-dialog.ts'
  import { readDesktopRuntime } from './runtime-tree.ts'
-@@ -394,6 +394,8 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -395,6 +395,8 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
  
  async function main(): Promise<void> {
    const desktopSettings = readDesktopSettings(app.getPath('userData'))
@@ -148,7 +148,7 @@ index a306a64..eb960db 100644
    void pruneCrashReports(app.getPath('logs'))
    const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
    const updateJournal = journalDirectory === undefined ? undefined : new DesktopUpdateJournal(journalDirectory, app.getVersion())
-@@ -1134,7 +1136,45 @@ async function main(): Promise<void> {
+@@ -1139,7 +1141,45 @@ async function main(): Promise<void> {
      // menu on a left click instead of forwarding one.
      try {
        tray = new DesktopTray({ iconPath: trayIconPath, locale: currentDesktopLocale,
@@ -196,7 +196,7 @@ index a306a64..eb960db 100644
    }
    // The confirmation sends the user to the tray, so it covers exactly the platforms that create one.
 diff --git a/apps/desktop/src/settings.ts b/apps/desktop/src/settings.ts
-index a4bb67b..a37f3e5 100644
+index a4bb67b3..a37f3e5b 100644
 --- a/apps/desktop/src/settings.ts
 +++ b/apps/desktop/src/settings.ts
 @@ -10,6 +10,10 @@ export interface DesktopSettings {
@@ -279,7 +279,7 @@ index a4bb67b..a37f3e5 100644
 +  writeFileSync(path, `${JSON.stringify(document, null, 2)}\n`, { mode: 0o600 })
 +}
 diff --git a/apps/desktop/src/tray.ts b/apps/desktop/src/tray.ts
-index 1764a25..3ca9201 100644
+index 1764a250..3ca9201e 100644
 --- a/apps/desktop/src/tray.ts
 +++ b/apps/desktop/src/tray.ts
 @@ -1,6 +1,6 @@
@@ -333,7 +333,7 @@ index 1764a25..3ca9201 100644
  
    /** Remove the icon; called once the quit is confirmed so no dead icon outlives the process. */
 diff --git a/apps/desktop/tests/glass-mode.spec.ts b/apps/desktop/tests/glass-mode.spec.ts
-index cd8d2df..7b6aca1 100644
+index cd8d2df7..7b6aca1e 100644
 --- a/apps/desktop/tests/glass-mode.spec.ts
 +++ b/apps/desktop/tests/glass-mode.spec.ts
 @@ -1,9 +1,10 @@
@@ -373,10 +373,10 @@ index cd8d2df..7b6aca1 100644
  
  describe('glassTint', () => {
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index f47e66d..9ea3d18 100644
+index 747b13b3..a4d1ca5e 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
-@@ -1397,6 +1397,16 @@ describe('desktop main startup', () => {
+@@ -1433,6 +1433,16 @@ describe('desktop main startup', () => {
      return host
    }
  
@@ -393,7 +393,7 @@ index f47e66d..9ea3d18 100644
    it('hides the workspace before intentional Host shutdown can look like reconnection', async () => {
      const host = await readyWorkspace()
      const window = harness.windows[0]!
-@@ -1441,6 +1451,41 @@ describe('desktop main startup', () => {
+@@ -1477,6 +1487,41 @@ describe('desktop main startup', () => {
      expect(harness.trays[0]!.setContextMenu.mock.calls.length).toBe(relabels + 1)
    })
  
@@ -436,7 +436,7 @@ index f47e66d..9ea3d18 100644
      vi.stubGlobal('process', { ...process, platform: 'darwin' })
      harness.embeddedPolicy = { origin: 'https://policy.example.com', allowedPageOrigins: ['https://downloads.example.com'] }
 diff --git a/apps/desktop/tests/settings.spec.ts b/apps/desktop/tests/settings.spec.ts
-index b285bb9..33fcca6 100644
+index b285bb98..33fcca6d 100644
 --- a/apps/desktop/tests/settings.spec.ts
 +++ b/apps/desktop/tests/settings.spec.ts
 @@ -3,7 +3,7 @@ import * as fs from 'node:fs'
@@ -512,7 +512,7 @@ index b285bb9..33fcca6 100644
    const { userData, path } = fixture()
    mkdirSync(path)
 diff --git a/apps/desktop/tests/tray.spec.ts b/apps/desktop/tests/tray.spec.ts
-index 11c3a48..61c676d 100644
+index 11c3a488..61c676d8 100644
 --- a/apps/desktop/tests/tray.spec.ts
 +++ b/apps/desktop/tests/tray.spec.ts
 @@ -59,6 +59,25 @@ it('opens the window on a single click and routes menu entries to the open and q
@@ -542,10 +542,10 @@ index 11c3a48..61c676d 100644
    const f = setup()
    f.setLocale('zh')
 diff --git a/apps/desktop/tests/welcome-startup.spec.ts b/apps/desktop/tests/welcome-startup.spec.ts
-index 2fb4f55..a2a4020 100644
+index 625949c2..693bab8d 100644
 --- a/apps/desktop/tests/welcome-startup.spec.ts
 +++ b/apps/desktop/tests/welcome-startup.spec.ts
-@@ -103,7 +103,7 @@ vi.mock('electron', () => ({
+@@ -104,7 +104,7 @@ vi.mock('electron', () => ({
  vi.mock('../src/tray.ts', () => ({ DesktopTray: class { relabel() {} dispose() {} } }))
  
  vi.mock('../src/paths.ts', () => ({ resolveDesktopPaths: () => ({ profile: '/profile' }) }))

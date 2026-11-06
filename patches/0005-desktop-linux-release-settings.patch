@@ -1,5 +1,5 @@
 diff --git a/.gitignore b/.gitignore
-index 3cb86ce..58b44e9 100644
+index 4d52487a..abe1a38a 100644
 --- a/.gitignore
 +++ b/.gitignore
 @@ -2,6 +2,7 @@ CLAUDE.local.md
@@ -12,7 +12,7 @@ index 3cb86ce..58b44e9 100644
  lib/
 diff --git a/apps/desktop/.env.linux.example b/apps/desktop/.env.linux.example
 new file mode 100644
-index 0000000..7185dc9
+index 00000000..7185dc93
 --- /dev/null
 +++ b/apps/desktop/.env.linux.example
 @@ -0,0 +1,33 @@
@@ -50,7 +50,7 @@ index 0000000..7185dc9
 +# DOWNLOAD_PROD_COS_SECRET_ID=
 +# DOWNLOAD_PROD_COS_SECRET_KEY=
 diff --git a/apps/desktop/scripts/desktop-package-environment.d.mts b/apps/desktop/scripts/desktop-package-environment.d.mts
-index ec9da72..76c07e5 100644
+index ec9da721..76c07e5e 100644
 --- a/apps/desktop/scripts/desktop-package-environment.d.mts
 +++ b/apps/desktop/scripts/desktop-package-environment.d.mts
 @@ -20,7 +20,7 @@ export function localMacOSPackageEnvironment(environment?: NodeJS.ProcessEnv): N
@@ -71,7 +71,7 @@ index ec9da72..76c07e5 100644
    options?: { unsigned?: boolean, prepareOnly?: boolean, skipNotarization?: boolean },
  ): void
 diff --git a/apps/desktop/scripts/desktop-package-environment.mjs b/apps/desktop/scripts/desktop-package-environment.mjs
-index 27a7f92..23a0c37 100644
+index 27a7f92c..23a0c37e 100644
 --- a/apps/desktop/scripts/desktop-package-environment.mjs
 +++ b/apps/desktop/scripts/desktop-package-environment.mjs
 @@ -7,7 +7,8 @@ import { parseEnv } from 'node:util'
@@ -168,7 +168,7 @@ index 27a7f92..23a0c37 100644
      resolveMacOSSigningEnvironment(environment)
      if (!options.skipNotarization) {
 diff --git a/apps/desktop/scripts/desktop-toolchain-preflight.ts b/apps/desktop/scripts/desktop-toolchain-preflight.ts
-index ff855cf..a568c80 100644
+index ff855cfd..a568c806 100644
 --- a/apps/desktop/scripts/desktop-toolchain-preflight.ts
 +++ b/apps/desktop/scripts/desktop-toolchain-preflight.ts
 @@ -13,6 +13,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -232,7 +232,7 @@ index ff855cf..a568c80 100644
  ): Promise<void> {
    const failures = await probeDesktopToolchain(platform, environment)
 diff --git a/apps/desktop/tests/desktop-package-environment.spec.ts b/apps/desktop/tests/desktop-package-environment.spec.ts
-index a8d79a2..59d64e6 100644
+index a8d79a2c..59d64e65 100644
 --- a/apps/desktop/tests/desktop-package-environment.spec.ts
 +++ b/apps/desktop/tests/desktop-package-environment.spec.ts
 @@ -7,6 +7,11 @@ import { resolveWindowsPackageSettings } from '../scripts/windows-package-settin

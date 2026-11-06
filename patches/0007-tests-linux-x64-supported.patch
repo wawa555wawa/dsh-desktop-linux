@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/tests/desktop-auto-update-environment.spec.ts b/apps/desktop/tests/desktop-auto-update-environment.spec.ts
-index 9fbe629..5077021 100644
+index 9fbe629c..50770217 100644
 --- a/apps/desktop/tests/desktop-auto-update-environment.spec.ts
 +++ b/apps/desktop/tests/desktop-auto-update-environment.spec.ts
 @@ -107,8 +107,9 @@ describe('desktop auto-update environment', () => {
@@ -15,7 +15,7 @@ index 9fbe629..5077021 100644
  
    it('uses Nightly metadata for stable and prerelease Desktop versions', () => {
 diff --git a/apps/desktop/tests/desktop-build-paths.spec.ts b/apps/desktop/tests/desktop-build-paths.spec.ts
-index f9891eb..1e9cadd 100644
+index f9891ebb..1e9caddf 100644
 --- a/apps/desktop/tests/desktop-build-paths.spec.ts
 +++ b/apps/desktop/tests/desktop-build-paths.spec.ts
 @@ -1,6 +1,7 @@
@@ -54,7 +54,7 @@ index f9891eb..1e9cadd 100644
    })
  })
 diff --git a/apps/desktop/tests/package-target.spec.ts b/apps/desktop/tests/package-target.spec.ts
-index ba647d7..e4f74d0 100644
+index ba647d76..e4f74d02 100644
 --- a/apps/desktop/tests/package-target.spec.ts
 +++ b/apps/desktop/tests/package-target.spec.ts
 @@ -26,7 +26,11 @@ describe('desktop package target', () => {

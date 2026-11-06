@@ -52,13 +52,16 @@
 ### 不属于本地修改、不要删的东西
 
 - 左侧栏底部的「更多」入口：来自上游 `packages/client/ui-entry-customization`（`more` 菜单、插件浏览 /
-  创建草稿），0.2.2-alpha.2 基线树里就有，不是 fork 作者加的。
+  创建草稿），0.2.2 基线树里就有，不是 fork 作者加的。
 - `assets/tray-linux.png`、`patches/0013` 的托盘逻辑、`0016` caption、`0017` Host resources、`0018` 玻璃
   模式：都是 ffyfox 上游的补丁，本仓库原样继承。
 - 官方品牌的注册代码（`packages/client/ui-brand-official`）：上游代码，`0021` 只是让 Linux 的 unsigned
   构建用上 official profile，不修改这段源码。
 
 ### 同步上游的固定流程
+
+> **注（0.2.2-rc.1）**：本轮没有采用 ffyfox 的 `v0.2.2rc1`，而是把本仓库现有 19 条补丁在 alpha.2 上
+> 按序重放后 rebase 到上游 `66491b05`；下面第 1–2 步的 ffyfox 基线法不适用于这一轮。
 
 1. 从 `ffyfox/master` 开 `sync/<tag>` 分支，不直接改 `master`；先 `git fetch` 再对比。
 2. 采用上游新的 `patches/`、`PKGBUILD`、`scripts/`、`README` 为基线；`0015` 保持作废，空号不复用。

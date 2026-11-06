@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/src/ipc.ts b/apps/desktop/src/ipc.ts
-index e62a84f..e690b0d 100644
+index a3c5f5d9..1c377089 100644
 --- a/apps/desktop/src/ipc.ts
 +++ b/apps/desktop/src/ipc.ts
-@@ -36,6 +36,8 @@ export const DESKTOP_IPC = {
+@@ -39,6 +39,8 @@ export const DESKTOP_IPC = {
    windowFullscreen: 'dsh-desktop:window-fullscreen',
    windowsAppearance: 'dsh-desktop:windows-appearance',
    windowsMenu: 'dsh-desktop:windows-menu',
@@ -12,10 +12,10 @@ index e62a84f..e690b0d 100644
  
  /** Desktop release update state rendered by desktop-owned UI. */
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 2333e65..a306a64 100644
+index bd63c59d..5d6849f4 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -280,6 +280,12 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -281,6 +281,12 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
        titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
          symbolColor: nativeTheme.shouldUseDarkColors ? '#f9fafb' : '#0f1115' },
      } : {}),
@@ -28,7 +28,7 @@ index 2333e65..a306a64 100644
      // hiddenInset places traffic lights inside the sidebar; sidebar vibrancy
      // needs a transparent window background to show through the page.
      ...(process.platform === 'darwin' ? {
-@@ -1196,6 +1202,21 @@ async function main(): Promise<void> {
+@@ -1201,6 +1207,21 @@ async function main(): Promise<void> {
      })
    }
  
@@ -50,7 +50,7 @@ index 2333e65..a306a64 100644
    const hideMainWindow = (window: BrowserWindow): void => {
      if (process.platform === 'darwin' && window.isFullScreen()) {
        // Hiding a fullscreen window leaves an empty black space; leave fullscreen first.
-@@ -1208,6 +1229,16 @@ async function main(): Promise<void> {
+@@ -1213,6 +1234,16 @@ async function main(): Promise<void> {
    const createMainWindow = (): BrowserWindow => {
      const window = createWindow(appPreload, false, true)
      mainWindow = window
@@ -68,10 +68,10 @@ index 2333e65..a306a64 100644
      shortcuts.attach(window)
      window.on('focus', automaticCheck)
 diff --git a/apps/desktop/src/preload-app.ts b/apps/desktop/src/preload-app.ts
-index c9937a3..5e2f1b0 100644
+index 26266b4f..af5d8d38 100644
 --- a/apps/desktop/src/preload-app.ts
 +++ b/apps/desktop/src/preload-app.ts
-@@ -7,6 +7,7 @@ import { PLATFORM_IPC } from './platform-ipc.ts'
+@@ -8,6 +8,7 @@ import { PLATFORM_IPC } from './platform-ipc.ts'
  import { markDocumentPlatform, syncWindowFullscreen } from './preload-platform.ts'
  import { syncNativeTheme } from './preload-theme.ts'
  import { syncWindowsAppearance } from './preload-windows.ts'
@@ -79,7 +79,7 @@ index c9937a3..5e2f1b0 100644
  import { installMandatoryUpdateOverlay } from './preload-mandatory-overlay.ts'
  import { createDesktopBrowserBridge } from './preload-browser.ts'
  import type { FileDragHandle } from '@deepseek-ai/dsh-util-file-drag'
-@@ -84,6 +85,7 @@ if (location.protocol === `${SCHEME}:` && location.hostname === 'app') {
+@@ -90,6 +91,7 @@ if (location.protocol === `${SCHEME}:` && location.hostname === 'app') {
      else body.setAttribute('tabindex', previous)
    })
    syncWindowsAppearance()
@@ -89,7 +89,7 @@ index c9937a3..5e2f1b0 100644
      pick: () => ipcRenderer.invoke(DESKTOP_IPC.directoryPick) as Promise<string | null>,
 diff --git a/apps/desktop/src/preload-linux-caption.ts b/apps/desktop/src/preload-linux-caption.ts
 new file mode 100644
-index 0000000..a4d01f5
+index 00000000..a4d01f59
 --- /dev/null
 +++ b/apps/desktop/src/preload-linux-caption.ts
 @@ -0,0 +1,103 @@
@@ -197,7 +197,7 @@ index 0000000..a4d01f5
 +  else install()
 +}
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index de8b027..f47e66d 100644
+index 2921204b..747b13b3 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
 @@ -119,6 +119,8 @@ const harness = await vi.hoisted(async () => {
@@ -209,7 +209,7 @@ index de8b027..f47e66d 100644
      visible = true
      isVisible() { return this.visible }
      isFocused() { return true }
-@@ -996,6 +998,31 @@ describe('desktop main startup', () => {
+@@ -1035,6 +1037,31 @@ describe('desktop main startup', () => {
      expect(window.webContents.send.mock.calls.filter(([channel]) => channel === DESKTOP_IPC.windowFullscreen)).toHaveLength(0)
    })
  

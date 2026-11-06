@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
-index 47460ad..027803e 100644
+index 60dc0956..5e44881e 100644
 --- a/apps/desktop/scripts/electron-builder-config.mjs
 +++ b/apps/desktop/scripts/electron-builder-config.mjs
 @@ -172,8 +172,10 @@ export function createElectronBuilderConfig(
@@ -15,7 +15,7 @@ index 47460ad..027803e 100644
      mac: {
        icon: fileURLToPath(new URL('../resources/icon-macos.png', import.meta.url)),
 diff --git a/apps/desktop/scripts/render-tray-icon.ts b/apps/desktop/scripts/render-tray-icon.ts
-index 01bacde..b857c54 100644
+index 01bacdea..b857c541 100644
 --- a/apps/desktop/scripts/render-tray-icon.ts
 +++ b/apps/desktop/scripts/render-tray-icon.ts
 @@ -1,11 +1,14 @@
@@ -102,7 +102,7 @@ index 01bacde..b857c54 100644
  
  if (process.argv[1] !== undefined && import.meta.filename === resolve(process.argv[1])) await main()
 diff --git a/apps/desktop/src/background-notice.ts b/apps/desktop/src/background-notice.ts
-index c2a0007..64053e4 100644
+index c2a0007d..64053e43 100644
 --- a/apps/desktop/src/background-notice.ts
 +++ b/apps/desktop/src/background-notice.ts
 @@ -1,4 +1,4 @@
@@ -112,10 +112,10 @@ index c2a0007..64053e4 100644
  import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
  import { dirname } from 'node:path'
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 583bf74..76ef3b4 100644
+index d4f90a97..1fb6ac48 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -1087,15 +1087,22 @@ async function main(): Promise<void> {
+@@ -1092,15 +1092,22 @@ async function main(): Promise<void> {
      tray?.relabel()
    }
    refreshApplicationMenu()
@@ -142,7 +142,7 @@ index 583bf74..76ef3b4 100644
        locale: () => locale, show: ordinaryMessageBox, focus: () => { updateDialog.focus() } })
      : undefined
 diff --git a/apps/desktop/src/tray.ts b/apps/desktop/src/tray.ts
-index b2ce416..1764a25 100644
+index b2ce416b..1764a250 100644
 --- a/apps/desktop/src/tray.ts
 +++ b/apps/desktop/src/tray.ts
 @@ -1,11 +1,12 @@
@@ -160,3 +160,17 @@ index b2ce416..1764a25 100644
    readonly iconPath: string
    readonly locale: () => DesktopLocale
    /** Show and focus the primary window. */
+diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
+index df5a5d15..de2d1e1e 100644
+--- a/apps/desktop/tests/main-startup.spec.ts
++++ b/apps/desktop/tests/main-startup.spec.ts
+@@ -593,7 +593,8 @@ describe('desktop main startup', () => {
+       { sender, senderFrame: sender.mainFrame }, nextLocale,
+     )
+     const refreshed = platform === 'win32' ? applicationMenuItems()
+-      : harness.menu.mock.lastCall![0][0]!.submenu as MenuItemConstructorOptions[]
++      : harness.menu.mock.calls.findLast(([template]) =>
++        Array.isArray(template?.[0]?.submenu))![0][0]!.submenu as MenuItemConstructorOptions[]
+     expect(refreshed.filter(item => item.role === 'toggleDevTools' && item.visible !== false)).toEqual([
+       { role: 'toggleDevTools', label: nextLocale === 'en' ? en.toggleDevToolsMenu : zh.toggleDevToolsMenu },
+     ])

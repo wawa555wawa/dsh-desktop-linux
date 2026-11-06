@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/scripts/prepare-dsh.ts b/apps/desktop/scripts/prepare-dsh.ts
-index a069888..b3f5c79 100644
+index a0698880..b3f5c792 100644
 --- a/apps/desktop/scripts/prepare-dsh.ts
 +++ b/apps/desktop/scripts/prepare-dsh.ts
 @@ -7,7 +7,7 @@ import { createHash } from 'node:crypto'
@@ -65,7 +65,7 @@ index a069888..b3f5c79 100644
      }
    } catch (error) {
 diff --git a/apps/desktop/scripts/prepare-runtime.ts b/apps/desktop/scripts/prepare-runtime.ts
-index 4e33853..f5e464d 100644
+index 4e338532..f5e464d7 100644
 --- a/apps/desktop/scripts/prepare-runtime.ts
 +++ b/apps/desktop/scripts/prepare-runtime.ts
 @@ -8,7 +8,8 @@ import { parseArgs } from 'node:util'

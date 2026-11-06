@@ -23,9 +23,11 @@ actually been tested.
 ## How this fork differs from the original project
 
 This repository is a fork of [ffyfox/dsh-desktop-linux](https://github.com/ffyfox/dsh-desktop-linux),
-based on its `2d52dac` (upstream `dsh-v0.2.2-alpha.2`). **The packaging pipeline itself is unchanged**:
-only `0003` among patches `0001`–`0018` carries additions from this fork (see the table below); the
-`scripts/` and `PKGBUILD` build logic are the original project's. This fork only adds:
+starting from its `2d52dac` (upstream `dsh-v0.2.2-alpha.2`). **The packaging pipeline itself is
+unchanged**: only `0003` among patches `0001`–`0018` carries additions from this fork (see the table
+below); the `scripts/` and `PKGBUILD` build logic are the original project's. This fork only adds the
+following. For 0.2.2-rc.1 it did not take ffyfox's `v0.2.2rc1`: patches `0001`–`0021` were rebuilt
+against the new baseline in this repository.
 
 | Change | Content |
 |---|---|

@@ -1,10 +1,10 @@
 # 补丁
 
-按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `f3803c96`（tag `dsh-v0.2.2-alpha.2`）。
+按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `66491b05`（tag `dsh-v0.2.2-rc.1`）。
 
 `0019`（无边框自绘标题栏）、`0020`（托盘里的玻璃模式开关）与 `0021`（Linux 的 unsigned 产物使用官方
-品牌）是本 fork 在 ffyfox 原项目的补丁系列之上新增的三条；其余 16 条（含 `0018` 玻璃模式）与该项目的
-版本一致，`0003` 另带本 fork 的增补。
+品牌）是本 fork 在 ffyfox 原项目的补丁系列之上新增的三条；其余 16 条（含 `0018` 玻璃模式）源自该项目，
+0.2.2-rc.1 这一轮由本仓库自行重做到新基线（没有采用 ffyfox 的 `v0.2.2rc1`），`0003` 另带本 fork 的增补。
 
 组织约定：**一条改动只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，改动互不重复、
 按编号应用（顺序依赖见下）。补丁由 `git diff -- <files>` 从开发工作树生成；**一个文件可以被
@@ -92,6 +92,21 @@ caption、Host 跑在 primary-runtime 真 Node 上、2 个渲染进程都在独�
 `data-windows-titlebar` 缺席、侧栏渐变材质生效 —— 玻璃模式这条读取路径也过了；同样用 CDP 读到
 `document.title` 是 `DeepSeek Harness`、侧栏 `sidebar.brand.mark` / `sidebar.brand.name` 两个官方 slot
 都渲染了 SVG —— 0021 的落点也过了。**Arch 包（`makepkg`）这一轮没跑**（本机没有 makepkg），留给 CI。
+
+再往后是 0.2.2-rc.1（2026-11-06）：这一轮没有采用 ffyfox 的 `v0.2.2rc1`，而是把本仓库的 19 条补丁在
+alpha.2 上按序重放后 rebase 到 `66491b05`（tag `dsh-v0.2.2-rc.1`）—— 上游这次动了 2315 个文件
+（+87654/−27240）。补丁层面只有 `0018` 需要人工解冲突：`AppFrame.tsx` 的 `drawer` 是 rc.1 新加的，
+合并成 `drawer || darwin || linuxGlass || windowsTitlebar` 与 `drawer || (darwin || linuxGlass) && sidebarCollapsed`。
+另外 `0013` 把 Linux 托盘也接进 `Menu.buildFromTemplate` 之后，上游 `main-startup.spec.ts` 里「locale 切换后
+最后一个菜单模板就是应用菜单」的假设不再成立，断言改成取最近一个带 `submenu` 的模板（合并进 `0013`）。
+两条打补丁路径都干净：`git apply`（`apply-patches.sh`）与 GNU `patch -Np1` 各打 80 个改动文件，树零差异；
+`pnpm install --frozen-lockfile`（pnpm 11.28.5）、`build.ts --scope typecheck` 5 道门全过；上游桌面单测
+184 个文件（179 通过 / 5 跳过）、2168 个用例（2105 通过 / 63 跳过）零失败。`build.sh --all` 出齐三件套并冒烟
+通过 —— AppImage 362 252 079 B（sha256 `e4eb2f70…`）、deb 291 260 340 B（`4d0923f7…`）、rpm 242 248 513 B
+（`ad97424f…`），payload 冒烟（CLI 离线装插件与卸载、`dsh web:` 起得来、Office 三格式转 PDF、技能 CLI 发现）
+全过；`verify.sh` 静态 **23 通过 / 0 失败 / 5 跳过**，`verify.sh --runtime` **38 通过 / 0 失败 / 4 跳过**
+（活体：自绘 caption、0021 官方品牌、Host 跑在 primary-runtime 真 Node 上、resources 根、2 个渲染进程都在
+独立 user namespace + seccomp、托盘注册、profile 独占）。Arch 包仍留给 CI（本机没有 makepkg）。
 
 构建机注意：本机是 Fedora 44，electron-builder 自带的 fpm（ruby）需要 `libcrypt.so.1`，系统只有
 `libcrypt.so.2`；用仓库里已有的 `.electron-cache/libxcrypt/usr/lib64` 补 `LD_LIBRARY_PATH` 后才能出

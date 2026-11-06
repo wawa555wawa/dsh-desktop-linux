@@ -19,9 +19,10 @@ release target."*）。本项目补的就是这一块：让官方打包流水线
 ## 这个 fork 与原项目的区别
 
 本仓库是 [ffyfox/dsh-desktop-linux](https://github.com/ffyfox/dsh-desktop-linux) 的 fork，
-基线是它的 `2d52dac`（上游 `dsh-v0.2.2-alpha.2`）。**打包流水线本身没有改**：补丁 `0001`–`0018`
+从它的 `2d52dac`（上游 `dsh-v0.2.2-alpha.2`）起步。**打包流水线本身没有改**：补丁 `0001`–`0018`
 里只有 `0003` 带本 fork 的增补（见下表），`scripts/` 与 `PKGBUILD` 的构建逻辑都是原项目原样；这个
-fork 只在上面叠加了下面这些。
+fork 只在上面叠加了下面这些。0.2.2-rc.1 这一轮没有采用 ffyfox 的 `v0.2.2rc1`：`0001`–`0021`
+由本仓库自行重做到新基线。
 
 | 改动 | 内容 |
 |---|---|

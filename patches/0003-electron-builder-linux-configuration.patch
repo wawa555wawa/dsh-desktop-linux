@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
-index cf0c19e..60dc095 100644
+index cf0c19e8..60dc0956 100644
 --- a/apps/desktop/scripts/electron-builder-config.mjs
 +++ b/apps/desktop/scripts/electron-builder-config.mjs
 @@ -23,7 +23,8 @@ import {
@@ -105,7 +105,7 @@ index cf0c19e..60dc095 100644
        installerSidebar: join(buildPaths.root, 'installer-ui', 'uninstaller-sidebar.bmp'),
 diff --git a/apps/desktop/scripts/linux-after-install.sh b/apps/desktop/scripts/linux-after-install.sh
 new file mode 100644
-index 0000000..49b919a
+index 00000000..49b919ae
 --- /dev/null
 +++ b/apps/desktop/scripts/linux-after-install.sh
 @@ -0,0 +1,76 @@
